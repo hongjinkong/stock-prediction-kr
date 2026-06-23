@@ -13,3 +13,17 @@ __pycache__/
 .venv/
 venv/
 .env
+
+# .gitignore 파일 생성
+with open('.gitignore', 'w') as f:
+    f.write('''
+# 데이터 및 캐시 제외
+*.csv
+*.xlsx
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+# 모델 가중치 파일
+*.pth
+*.pkl
+''')
