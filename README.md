@@ -1,64 +1,153 @@
-# 🔮 Macroeconomic-Driven PyTorch Ensemble Trading System
+# 📈 미국 주식 AI 앙상블 예측 모델 (US Stock AI Ensemble)
 
-거시경제 지표와 금융 시장의 머신러닝/딥러닝 앙상블 모델을 결합한 미국 대형 우량주 전용 알고리즘 트레이딩 시스템입니다. 주가 변동성 노이즈와 하락장 리스크를 제어하기 위한 **[숏(인버스) 금지 + 하락 시 현금 관망 + 5일 추세 홀딩]** 전략이 탑재되어 있습니다.
-
----
-
-## 🏗️ 1. System Architecture
-본 시스템은 단순히 가격을 추종하는 단일 모델이 아닌, **[데이터 파이프라인 ➡️ 앙상블 예측 엔진 ➡️ 리스크 관리 매매 엔진]**으로 이어지는 구조화된 파이프라인으로 구동됩니다.
-
-1. **Feature Engineering**: S&P500, NASDAQ, VIX, 미국 국채 금리, 금(Gold) 등 글로벌 거시경제 변수를 결합하여 다차원 시계열 데이터 가공
-2. **Prediction Engine**: 시계열 패턴 분석(LSTM)과 비선형 데이터 매핑(LightGBM, RandomForest)의 집단지성 앙상블 구현
-3. **Trading Engine**: AI 시그널 강도 및 매수 마진(Threshold)에 기반한 실전 포지션 제어
+> NVDA(엔비디아) 등 미국 주식의 다음 영업일 방향성을 예측하는 AI 앙상블 모델
 
 ---
 
-## 🧠 2. Core Prediction Models
-과적합(Overfitting)을 원천 방지하고 금융 데이터 특유의 노이즈를 상쇄하기 위해, 서로 다른 수학적 기반을 가진 3대 알고리즘을 융합했습니다.
+## 🔍 프로젝트 개요
 
-* **① PyTorch LSTM**: 시계열 특화 딥러닝 레이어를 통해 거시경제 지표의 연속적인 '장기 추세'를 정밀하게 포착.
-* **② LightGBM**: 트리 기반 부스팅 알고리즘을 통해 매크로 변수 간의 비선형 관계를 학습, 단기적인 가격 왜곡 시그널을 감지.
-* **③ Random Forest**: 다수의 의사결정나무를 배깅(Bagging)하여 개별 모델의 분산(Variance)을 낮추고 전체 시스템의 '안전판' 역할 수행.
-
-**⚖️ Ensemble Method**: `Final Prob = (0.34 * P_LSTM) + (0.33 * P_LGBM) + (0.33 * P_RF)` (Static Soft Voting)
+거시경제 지표와 기술적 지표를 융합한 **3중 앙상블 AI 모델**로 미국 주식의 상승/하락 방향성을 예측합니다.  
+단순한 가격 예측을 넘어 **실전 매매 시그널 대시보드**와 **백테스팅**까지 구현했습니다.
 
 ---
 
-## 🛡️ 3. Risk-Averse Trading Rules
-예측 엔진의 날카로운 트리거(`PRED_DAYS = 1`)와 매매 엔진의 단단한 맷집(`HOLDING_DAYS = 5`)을 분리하여 비대칭적 자산 방어선을 구축했습니다.
+## 🧠 모델 구조
 
-* **🚫 Short-Selling Ban (숏 절대 금지)**: 미국 우량 대형주의 우상향 기류에 반하는 하락 베팅을 원천 금지하여 손실 위험 최소화
-* **📉 Cash-Out Strategy (100% 현금 관망)**: 하락 시그널 발생 시 인버스를 매수하는 대신 자산을 **100% 달러 현금화**하여 대기. 이를 통해 폭락 구간에서 자산 곡선을 완벽한 수평선(ㅡ)으로 방어.
-* **⏳ 5-Day Trend Holding (5일 강제 홀딩)**: 진입 후 5영업일 동안 잔파도 노이즈를 무시하고 포지션을 홀딩함으로써 우량주 특유의 거대한 추세 상승 기류를 복리로 흡수.
+```
+[주가 데이터 (yfinance)]   [거시경제 지수 (S&P500, NDX, VIX, DXY, OIL, TNX)]
+              ↓                              ↓
+         Feature Engineering (기술적 지표 30개+)
+                          ↓
+         RandomForest Feature Selection
+                          ↓
+     ┌────────────────────┬─────────────────┐
+     │   PatchTST (LSTM)  │   LightGBM      │   RandomForest
+     │   (Transformer)    │   (Optuna 튜닝) │   (500 Trees)
+     └────────────────────┴─────────────────┘
+                          ↓
+              Soft Voting Ensemble (1:1:1)
+                          ↓
+             매매 시그널 대시보드 출력
+```
 
 ---
 
-## 📊 4. Backtesting Results (Test Set)
-다양한 자산군을 대상으로 백테스팅을 진행하여 시장 평균(Buy & Hold) 대비 압도적인 초과 수익률(Alpha)과 하방 리스크 방어력을 증명했습니다.
+## ⚙️ 사용 기술
 
-* **AAPL (애플)**: 폭락 구간 완벽한 현금 쉴드로 하방 방어 후, 상승 랠리 집중 탑승 (**+50%** 달성)
-* **JPM (JP모건)**: 잦은 엇박자 단타/숏 리스크를 필터링하여 시장을 압도 (**+42%** 달성)
-* **NVDA (엔비디아)**: 극심한 변동성 노이즈를 5일 홀딩 룰로 정복, 시장 대비 2배 이상의 자산 복리 폭발 (**+120%** 달성)
-* **TSLA (테슬라)**: 개별주 특유의 악마 같은 변동성 억까 구간을 최소화하며 방어력 입증
+| 분류 | 기술 |
+|------|------|
+| **딥러닝** | PyTorch, PatchTST (Transformer 기반 시계열 모델) |
+| **머신러닝** | LightGBM, RandomForest |
+| **하이퍼파라미터 최적화** | Optuna |
+| **데이터 수집** | yfinance, FinanceDataReader |
+| **기술적 지표** | ta 라이브러리 (RSI, MACD, Bollinger Bands 등) |
+| **전처리** | RobustScaler, RandomForest Feature Selection |
+| **GPU 가속** | CUDA (RTX 5060 Ti) |
 
 ---
 
-## 🔮 5. Real-Time Execution Dashboard Preview
-장 마감 직전 시스템 구동 시, 단순 확률 출력을 넘어 모델별 오피니언과 실전 행동 강령(Action Plan)을 명확하게 도출합니다.
+## 📊 입력 피처
 
-```text
+### 기술적 지표
+- **이동평균**: SMA(5, 10, 20, 60, 120), EMA(12, 26)
+- **모멘텀**: RSI(7, 14, 21), MACD, Stochastic
+- **변동성**: Bollinger Bands, ATR, 단기/장기 변동성 비율
+- **거래량**: OBV, Volume Ratio
+
+### 거시경제 지표
+| 지표 | 설명 |
+|------|------|
+| S&P 500 | 미국 대형주 지수 |
+| NASDAQ 100 | 기술주 지수 |
+| VIX | 공포 지수 |
+| DXY | 달러 인덱스 |
+| WTI 원유 | 에너지 가격 |
+| 10년 국채 금리 | 금리 환경 |
+
+---
+
+## 🚀 주요 기능
+
+### 1. 실전 매매 시그널 대시보드
+```
 =================================================================
- 🔮 PyTorch 앙상블 실전 매매 시그널 대시보드: TSLA
+ 🔮 PyTorch 앙상블 실전 매매 시그널 대시보드: NVDA
 =================================================================
- 📅 기준 거래일  : 2026-06-23 (종가: $381.61)
- 🎯 타겟 예측    : 미래 1영업일 뒤 방향성 (Threshold 마진: 0.002)
+ 📅 기준 거래일  : 2026-06-25 (종가: $135.42)
+ 🎯 타겟 예측    : 미래 1영업일 뒤 방향성
  🛡️ 매매 룰 세팅 : 숏(인버스) 절대 금지 | 강제 홀딩 기간: 5일
 -----------------------------------------------------------------
- [모델 1] PyTorch LSTM   : 93.8% (Opinion: 📈 BUY)
- [모델 2] LightGBM       : 50.1% (Opinion: 📈 BUY)
- [모델 3] RandomForest   : 51.9% (Opinion: 📈 BUY)
+ [모델 1] PyTorch PatchTST : 63.2% (Opinion: 📈 BUY)
+ [모델 2] LightGBM         : 58.7% (Opinion: 📈 BUY)
+ [모델 3] RandomForest     : 61.1% (Opinion: 📈 BUY)
 ─────────────────────────────────────────────────────────────────
  🏆 앙상블 최종 결론 : 🔥 강력 매수 (STRONG LONG)
- 📊 시그널 신뢰 강도 : 31.1% (앙상블 확률: 65.5%)
- 🎯 실전 매매 가이드 : 오늘 종가에 진입 후 최소 5영업일 동안 무조건 홀딩 (잔파도 무시)
+ 📊 시그널 신뢰 강도 : 24.7%
 =================================================================
+```
+
+### 2. 백테스팅
+- 테스트 세트에서 Buy & Hold 전략 대비 AI 전략 수익률 비교
+- 숏(인버스) 금지 + 5일 강제 홀딩 + 현금 관망 로직 적용
+
+### 3. Optuna 자동 하이퍼파라미터 최적화
+- LightGBM 파라미터 자동 탐색
+- 최적 Threshold 자동 탐색
+
+---
+
+## 📁 프로젝트 구조
+
+```
+stock-prediction-kr/
+├── US_final_predict.ipynb   # 메인 노트북 (미장 전용)
+└── models/
+    └── NVDA/
+        ├── patchtst.pth     # PatchTST 모델 가중치
+        ├── lgbm.pkl         # LightGBM 모델
+        ├── rf.pkl           # RandomForest 모델
+        └── meta.pkl         # 전처리 객체 (scaler, selector 등)
+```
+
+---
+
+## 🔧 설치 및 실행
+
+```bash
+# 패키지 설치
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+pip install yfinance FinanceDataReader pykrx ta lightgbm optuna scikit-learn
+
+# 노트북 실행
+jupyter notebook US_final_predict.ipynb
+```
+
+---
+
+## 📌 설정값 변경
+
+`Cell 3`에서 종목 및 파라미터 변경 가능:
+
+```python
+TICKER     = 'NVDA'      # 예측 종목 (AAPL, TSLA, MSFT 등으로 변경 가능)
+START_DATE = '2015-01-01'
+PRED_DAYS  = 1           # 예측 기간 (영업일)
+SEQ_LEN    = 60          # 시퀀스 길이
+```
+
+---
+
+## ⚠️ 주의사항
+
+> 이 모델은 **학습/연구 목적**으로 제작되었습니다.  
+> 실제 투자 손익에 대한 책임은 본인에게 있으며, 투자 권유가 아닙니다.
+
+---
+
+## 🛠️ 개발 환경
+
+- **OS**: Windows 11
+- **GPU**: NVIDIA GeForce RTX 5060 Ti
+- **CUDA**: 12.8
+- **Python**: 3.11
+- **PyTorch**: 2.12.0 (dev)
