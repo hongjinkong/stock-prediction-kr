@@ -45,6 +45,7 @@ def main():
     ap.add_argument('--nav', type=float, default=10000.0, help='holdings 미지정 시 가정할 전액 현금 NAV')
     ap.add_argument('--regime', action='store_true', help='레짐 필터(SPY 200일선) 켜기')
     ap.add_argument('--no-save', action='store_true', help='파일 저장 생략')
+    ap.add_argument('--notify', action='store_true', help='리포트를 텔레그램으로 전송(.env 설정 필요)')
     args = ap.parse_args()
 
     cfg = replace(DEFAULT, use_regime=args.regime)
@@ -55,7 +56,13 @@ def main():
     holdings = load_holdings(args.holdings, args.nav)
     rep = generate_report(close, cfg, holdings)
 
-    print(format_report(rep))
+    text = format_report(rep)
+    print(text)
+
+    if args.notify:
+        from trend_system.notify import send_telegram
+        ok = send_telegram(text)
+        print('텔레그램 전송:', '성공' if ok else '건너뜀/실패(.env 확인)', file=sys.stderr)
 
     if not args.no_save:
         jpath, cpath = save_report(rep)

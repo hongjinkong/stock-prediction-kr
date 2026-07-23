@@ -38,6 +38,20 @@ def get_client(paper=True):
     return TradingClient(key, sec, paper=paper)
 
 
+def open_orders(client):
+    """미체결(open) 주문 목록. 중복 제출 방지용."""
+    try:
+        from alpaca.trading.requests import GetOrdersRequest
+        from alpaca.trading.enums import QueryOrderStatus
+        req = GetOrdersRequest(status=QueryOrderStatus.OPEN)
+        return list(client.get_orders(filter=req))
+    except Exception:
+        try:
+            return list(client.get_orders())
+        except Exception:
+            return []
+
+
 def account_holdings(client):
     """현재 계좌 상태를 자문 리포트가 쓰는 holdings 형식으로 변환.
     반환: (holdings dict, nav, account 원본)."""

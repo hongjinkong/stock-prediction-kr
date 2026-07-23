@@ -33,10 +33,12 @@ def main():
     ap = argparse.ArgumentParser(description='Alpaca 페이퍼 리밸런싱')
     ap.add_argument('--regime', action='store_true', help='레짐 필터(SPY 200일선) 켜기')
     ap.add_argument('--execute', action='store_true', help='실제 페이퍼 주문 제출(미지정 시 드라이런)')
+    ap.add_argument('--force', action='store_true', help='미체결 주문이 있어도 강제 제출(중복 위험)')
+    ap.add_argument('--notify', action='store_true', help='리포트를 텔레그램으로 전송(.env 설정 필요)')
     args = ap.parse_args()
 
     # 브로커는 여기서 import (alpaca-py 없으면 친절한 에러)
-    from trend_system.broker import get_client, account_holdings, submit_rebalance
+    from trend_system.broker import get_client, account_holdings, submit_rebalance, open_orders
 
     cfg = replace(DEFAULT, use_regime=args.regime)
 
@@ -49,8 +51,14 @@ def main():
     print('시세 데이터 수집 중...', file=sys.stderr)
     close = fetch_close(cfg.tickers, cfg.start)
     rep = generate_report(close, cfg, holdings)
-    print(format_report(rep))
+    text = format_report(rep)
+    print(text)
     save_report(rep)
+
+    if args.notify:
+        from trend_system.notify import send_telegram
+        ok = send_telegram(text)
+        print('  텔레그램 전송:', '성공' if ok else '건너뜀/실패(.env 확인)', file=sys.stderr)
 
     if not rep['orders']:
         print('\n리밸런스 밴드 이내 — 제출할 주문이 없습니다.')
@@ -58,6 +66,13 @@ def main():
 
     if not args.execute:
         print('\n[드라이런] 실제 주문은 제출하지 않았습니다. 제출하려면 --execute 를 붙이세요.')
+        return
+
+    # ✅ [안전장치] 미체결 주문이 있으면 중복 제출 방지 (체결 전 재실행 시 이중매수 방지)
+    oo = open_orders(client)
+    if oo and not args.force:
+        print(f'\n🛑 미체결 주문 {len(oo)}건이 이미 있습니다 → 중복 방지를 위해 제출을 중단합니다.')
+        print('   체결된 뒤 다시 실행하거나, 정말 강제 제출하려면 --force 를 붙이세요.')
         return
 
     print('\n⚠️  페이퍼 계좌에 실제 주문을 제출합니다...')
