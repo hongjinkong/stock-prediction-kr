@@ -1,0 +1,6 @@
+# 추세추종 자문 시스템 (trend_system + advisory.py)
+yfinance>=0.2.40
+pandas>=2.0
+numpy>=1.24
+# 노트북/시각화용 (advisory.py 실행에는 불필요)
+matplotlib>=3.7

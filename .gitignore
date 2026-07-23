@@ -1,29 +1,29 @@
-# Python 생성 파일 제외
+# Python
 __pycache__/
 *.pyc
-
-# 모델 가중치 및 로컬 물리 파일 제외 (용량 초과 및 보안 방지)
-*.pt
-*.pkl
-*.txt
-*.h5
-
-# 가상환경 및 설정 파일 제외
 .ipynb_checkpoints/
+.DS_Store
+
+# 가상환경 / 시크릿
 .venv/
 venv/
 .env
 
-# .gitignore 파일 생성
-with open('.gitignore', 'w') as f:
-    f.write('''
-# 데이터 및 캐시 제외
+# 모델 가중치 / 대용량
+*.pt
+*.pth
+*.h5
+*.pkl
+
+# 데이터/출력 캐시
 *.csv
 *.xlsx
-__pycache__/
-.ipynb_checkpoints/
-.DS_Store
-# 모델 가중치 파일
-*.pth
-*.pkl
-''')
+
+# 추세추종 자문 시스템: 개인 금융정보는 절대 커밋 금지
+# (holdings.json=실제 보유, reports/=실제 NAV·주문 리포트)
+holdings.json
+reports/
+
+# 위 광역 패턴에서 되살릴 파일 (추적 필요)
+!requirements.txt
+!holdings.example.json
