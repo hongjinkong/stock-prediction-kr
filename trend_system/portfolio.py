@@ -6,6 +6,30 @@ import pandas as pd
 from .signals import trend_signal, volatility, regime_ok
 
 
+def portfolio_vol_scale(weights, close, cfg):
+    """✅ 포트폴리오 전체 변동성 타겟팅 스케일 계수.
+    최근 공분산으로 포트폴리오 추정 변동성을 구해, 목표(target_portfolio_vol)를 넘으면
+    전체 비중을 줄인다(폭락 시 디레버리징 → MDD 축소). None이면 1.0(끔)."""
+    if not cfg.target_portfolio_vol:
+        return 1.0
+    held = {t: wv for t, wv in weights.items() if wv and wv > 0}
+    if not held:
+        return 1.0
+    cols = list(held.keys())
+    rets = close[cols].pct_change().tail(cfg.vol_win).dropna()
+    if len(rets) < 5:
+        return 1.0
+    cov = rets.cov().values * cfg.ann
+    wv = np.array([held[t] for t in cols])
+    var = float(wv @ cov @ wv)
+    if var <= 0:
+        return 1.0
+    port_vol = np.sqrt(var)
+    # ✅ 디레버리징 전용: 고변동이면 줄이되(scale<1), 평온해도 키우지 않음(≤max_leverage).
+    #    추세 포트폴리오는 이미 보수적이라, 레버리지 업은 오히려 MDD를 키움.
+    return float(min(cfg.target_portfolio_vol / port_vol, cfg.max_leverage))
+
+
 def target_weights(close, cfg):
     """오늘(마지막 행) 기준 목표 비중(dict) 계산.
     신호·변동성은 오늘 종가까지 정보로 계산 → 다음 거래일에 집행(룩어헤드 없음)."""
@@ -24,6 +48,11 @@ def target_weights(close, cfg):
     s = sum(w.values())
     if s > cfg.target_lev:                              # 총노출 상한(레버리지 금지)
         w = {t: v * cfg.target_lev / s for t, v in w.items()}
+
+    # ✅ 포트폴리오 전체 변동성 타겟팅 (폭락 시 디레버리징)
+    scale = portfolio_vol_scale(w, close, cfg)
+    if scale != 1.0:
+        w = {t: v * scale for t, v in w.items()}
     return w
 
 
@@ -52,6 +81,9 @@ def backtest(close, cfg):
                 s = neww.sum()
                 if s > cfg.target_lev:
                     neww = neww * (cfg.target_lev / s)
+                # ✅ 포트폴리오 변동성 타겟팅 (dt 시점까지 정보만 사용)
+                scale = portfolio_vol_scale(neww.to_dict(), close.loc[:dt], cfg)
+                neww = neww * scale
             turn = float((neww - w).abs().sum())
             turnover += turn
             port.iloc[i] = float((w * rets.loc[dt]).sum()) - turn * cfg.cost

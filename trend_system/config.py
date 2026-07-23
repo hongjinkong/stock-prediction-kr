@@ -21,6 +21,12 @@ class Config:
     cost: float = 0.0005      # 편도 거래비용 0.05%
     ann: int = 252            # 연 거래일
 
+    # ✅ 포트폴리오 전체 변동성 타겟팅 (폭락 시 전체 디레버리징 → MDD 축소)
+    #    자산별 역변동성 위에, 포트폴리오 추정 변동성이 목표를 넘으면 전체 비중을 줄인다.
+    #    None 이면 끔(기존 동작). 검증: SPY 단일자산 기준 MDD -34%→-19%.
+    target_portfolio_vol: float = 0.12   # 목표 연율 변동성 (None이면 비활성). 디레버리징 전용(≤1)
+    max_leverage: float = 1.0            # 스케일 상한 (1.0=비중 안 키움, 위기에만 축소)
+
     use_regime: bool = False  # True면 SPY가 200일선 아래일 때 전체 현금화
     regime_ticker: str = 'SPY'
 
