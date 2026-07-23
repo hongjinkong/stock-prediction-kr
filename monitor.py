@@ -45,15 +45,15 @@ def main():
     today = datetime.date.today().isoformat()
 
     os.makedirs('reports', exist_ok=True)
+    row = {'date': today, 'nav': round(nav, 2), 'cash': round(float(acct.cash), 2),
+           'n_positions': len(holdings['positions']), 'spy': round(spy, 4)}
     if os.path.exists(LOG):
         log = pd.read_csv(LOG)
         log = log[log['date'] != today]           # 같은 날 재실행 시 갱신
+        log = pd.concat([log, pd.DataFrame([row])], ignore_index=True)
     else:
-        log = pd.DataFrame(columns=['date', 'nav', 'cash', 'n_positions', 'spy'])
-
-    row = {'date': today, 'nav': round(nav, 2), 'cash': round(float(acct.cash), 2),
-           'n_positions': len(holdings['positions']), 'spy': round(spy, 4)}
-    log = pd.concat([log, pd.DataFrame([row])], ignore_index=True).sort_values('date').reset_index(drop=True)
+        log = pd.DataFrame([row])                 # 첫 기록 (빈 프레임 concat 회피)
+    log = log.sort_values('date').reset_index(drop=True)
     log.to_csv(LOG, index=False, encoding='utf-8-sig')
 
     nav0, spy0 = log['nav'].iloc[0], log['spy'].iloc[0]
