@@ -4,3 +4,5 @@ pandas>=2.0
 numpy>=1.24
 # 노트북/시각화용 (advisory.py 실행에는 불필요)
 matplotlib>=3.7
+# Alpaca 페이퍼 연동용 (paper_trade.py 실행 시에만 필요)
+alpaca-py>=0.20
