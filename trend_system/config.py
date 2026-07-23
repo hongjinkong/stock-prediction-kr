@@ -1,7 +1,7 @@
 """전략 설정 — 모든 파라미터는 '관습값'으로 고정한다.
 이 데이터에 맞춰 최적화하는 순간 과적합이 시작되므로, 라이브 성과가 나빠도 여기를 튜닝하지 말 것."""
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -24,7 +24,9 @@ class Config:
     # ✅ 포트폴리오 전체 변동성 타겟팅 (폭락 시 전체 디레버리징 → MDD 축소)
     #    자산별 역변동성 위에, 포트폴리오 추정 변동성이 목표를 넘으면 전체 비중을 줄인다.
     #    None 이면 끔(기존 동작). 검증: SPY 단일자산 기준 MDD -34%→-19%.
-    target_portfolio_vol: float = 0.12   # 목표 연율 변동성 (None이면 비활성). 디레버리징 전용(≤1)
+    # 기본 OFF: 실데이터 검증 결과, per-asset 역변동성이 이미 변동성을 통제(기본 vol~11%)해
+    # 포트폴리오 레벨 타겟팅은 무효(Sharpe 1.31→1.29). 단일자산/균등비중 전략엔 유효하니 옵션으로 유지.
+    target_portfolio_vol: Optional[float] = None   # 목표 연율 변동성 (None=비활성). 켜면 디레버리징 전용(≤1)
     max_leverage: float = 1.0            # 스케일 상한 (1.0=비중 안 키움, 위기에만 축소)
 
     use_regime: bool = False  # True면 SPY가 200일선 아래일 때 전체 현금화
