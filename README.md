@@ -2,10 +2,10 @@
 
 > NVDA(엔비디아) 등 미국 주식의 다음 영업일 방향성을 예측하는 AI 앙상블 모델
 
-> ## ⚠️ 최종 결론 먼저 (반드시 읽을 것) — **[📑 FINDINGS.md](FINDINGS.md)**
+> ## ⚠️ 최종 결론 먼저 (반드시 읽을 것) — **[📑 FINDINGS.md](docs/FINDINGS.md)**
 > 데이터 누출을 엄격히 제거하고 거래비용·재현성을 갖춰 **정직하게** 검증한 결과,
 > **일봉 OHLCV+기술지표만으로는 거래비용을 이기는 예측 알파를 찾지 못했다**(크로스섹셔널 Test AUC≈0.52, 비용 반영 시 단순 시장 보유에 열위; 단일종목은 5종목 견고성 검증에서 평균 AUC≈0.53으로 탈락).
-> 아래의 백테스트 수치(+50%, +120% 등)는 **엄격한 교정 이전**의 낙관적(누출·비용 미반영) 값이므로 참고용이며, 반드시 [FINDINGS.md](FINDINGS.md)의 정직한 결과와 함께 보시기 바랍니다. **본 저장소는 투자 자문이 아니며 실거래를 권장하지 않습니다.**
+> 아래의 백테스트 수치(+50%, +120% 등)는 **엄격한 교정 이전**의 낙관적(누출·비용 미반영) 값이므로 참고용이며, 반드시 [FINDINGS.md](docs/FINDINGS.md)의 정직한 결과와 함께 보시기 바랍니다. **본 저장소는 투자 자문이 아니며 실거래를 권장하지 않습니다.**
 
 ---
 
@@ -105,13 +105,20 @@
 
 ```
 stock-prediction-kr/
-├── US_final_predict.ipynb   # 메인 노트북 (미장 전용)
-└── models/
-    └── NVDA/
-        ├── patchtst.pth     # PatchTST 모델 가중치
-        ├── lgbm.pkl         # LightGBM 모델
-        ├── rf.pkl           # RandomForest 모델
-        └── meta.pkl         # 전처리 객체 (scaler, selector 등)
+├── README.md · requirements.txt · .env.example · holdings.example.json
+├── docs/
+│   └── FINDINGS.md                     # 정직한 결과 보고서 (핵심 결론)
+├── notebooks/
+│   ├── prediction/                     # 예측 모델 (결론: 알파 없음)
+│   │   ├── US_final_predict_v2.ipynb
+│   │   ├── US_multi_sector_predict.ipynb
+│   │   └── robustness_check.py
+│   └── trend/                          # 추세추종 (실전 채택)
+│       ├── US_trend_following.ipynb
+│       └── US_trend_portfolio.ipynb
+├── trend_system/                       # 실전 운용 패키지 (config·data·signals·portfolio·report·broker·notify)
+├── scripts/                            # 실행: advisory · paper_trade · monitor · run_monthly.bat
+└── models/                             # 저장된 모델 가중치 (로컬)
 ```
 
 ---
@@ -124,7 +131,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 pip install yfinance FinanceDataReader pykrx ta lightgbm optuna scikit-learn
 
 # 노트북 실행
-jupyter notebook US_final_predict.ipynb
+jupyter notebook notebooks/prediction/US_final_predict_v2.ipynb
 ```
 
 ---

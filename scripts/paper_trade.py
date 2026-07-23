@@ -20,6 +20,9 @@ import argparse
 import sys
 from dataclasses import replace
 
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 루트를 import 경로에 추가
+
 from trend_system import DEFAULT, fetch_close, generate_report, format_report, save_report
 
 try:

@@ -15,6 +15,9 @@ import sys
 import pandas as pd
 import yfinance as yf
 
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 루트를 import 경로에 추가
+
 from trend_system.broker import get_client, account_holdings
 
 try:

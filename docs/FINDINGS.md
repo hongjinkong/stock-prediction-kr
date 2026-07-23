@@ -103,8 +103,8 @@ A(피어 시퀀스 풀링)+B(Purged CV·표본가중) 적용 후 NVDA 단독 Tes
 ```
 # 필요: Python 3.11, GPU(v2의 PatchTST용, 멀티섹터는 CPU로 충분)
 # 각 노트북 상단 셀의 %pip install 실행 후 위→아래 순서로 Run All
-# - US_multi_sector_predict.ipynb : 크로스섹셔널 (권장, 결정적/재현 가능)
-# - US_final_predict_v2.ipynb      : 단일 종목 (PatchTST, 실행 간 변동성 있음)
+# - notebooks/prediction/US_multi_sector_predict.ipynb : 크로스섹셔널 (권장, 결정적/재현 가능)
+# - notebooks/prediction/US_final_predict_v2.ipynb      : 단일 종목 (PatchTST, 실행 간 변동성 있음)
 # 견고성 검증: exec(open('robustness_check.py', encoding='utf-8').read())  (v2 전체 실행 후)
 ```
 

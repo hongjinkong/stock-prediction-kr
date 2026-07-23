@@ -18,6 +18,9 @@ import json
 import sys
 from dataclasses import replace
 
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 루트를 import 경로에 추가
+
 from trend_system import DEFAULT, fetch_close, generate_report, format_report, save_report
 
 # 윈도우 한국어 콘솔(cp949)에서 이모지 출력 시 UnicodeEncodeError 방지
