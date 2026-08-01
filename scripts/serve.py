@@ -12,6 +12,7 @@
 수 분 걸리므로 백그라운드 스레드에서 실행하고, 브라우저는 /api/status 를 폴링한다.
 """
 import argparse
+import errno
 import json
 import os
 import sys
@@ -140,9 +141,21 @@ def main():
               progress=lambda p, m: print(f'  [{p:3.0f}%] {m}', file=sys.stderr))
 
     handler = partial(Handler, directory=SITE)
-    # 127.0.0.1 고정 — 이 서버는 파이썬 파이프라인을 실행시키므로 외부에 열지 않는다
-    srv = ThreadingHTTPServer(('127.0.0.1', args.port), handler)
     url = f'http://127.0.0.1:{args.port}'
+    # 127.0.0.1 고정 — 이 서버는 파이썬 파이프라인을 실행시키므로 외부에 열지 않는다
+    try:
+        srv = ThreadingHTTPServer(('127.0.0.1', args.port), handler)
+    except OSError as e:
+        if e.errno != errno.EADDRINUSE:
+            raise
+        # 거의 항상 "서버를 이미 켜놨다" 이다. 트레이스백 대신 다음에 할 일을 알려준다.
+        print(f'\n포트 {args.port} 이(가) 이미 사용 중입니다.', file=sys.stderr)
+        print(f'  이미 서버가 켜져 있을 수 있습니다 → {url} 를 브라우저에서 열어보세요.',
+              file=sys.stderr)
+        print(f'  다른 포트로 띄우려면 : python scripts/serve.py --port {args.port + 1}',
+              file=sys.stderr)
+        print(f'  기존 서버를 끄려면   : pkill -f "scripts/serve.py"', file=sys.stderr)
+        return 1
     # flush=True — 출력을 파일/파이프로 넘겨도(tee, nohup) 배너가 바로 보이게
     print('=' * 60, flush=True)
     print(f' 추세추종 운용 서버 → {url}', flush=True)
@@ -154,7 +167,8 @@ def main():
     except KeyboardInterrupt:
         print('\n종료합니다.')
         srv.shutdown()
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
