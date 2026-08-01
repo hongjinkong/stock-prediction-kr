@@ -73,22 +73,26 @@ def sharpe_diff_test(r1, r2, rf, ann=252, n_boot=2000, block=21, seed=0):
 
 
 # --------------------------------------------------------------------------- 견고성
-def phase_robustness(close, cfg, rf=None):
+def phase_robustness(close, cfg, rf=None, progress=None):
     """리밸런스 위상 21개를 전부 실행. 헤드라인 숫자가 분포의 어디쯤인지 본다.
-    반환: DataFrame(phase, CAGR, Sharpe_ex, MDD)."""
+    반환: DataFrame(phase, CAGR, Sharpe_ex, MDD).
+    progress(done, total) — 오래 걸리므로 진행률을 흘려보낼 수 있다."""
     rows = []
     for ph in range(cfg.rebal):
         r, _, _ = backtest(close, cfg, rf=rf, phase=ph)
         p = perf(r, cfg.ann, rf)
         rows.append({'phase': ph, 'CAGR': p['CAGR'], 'Sharpe_ex': p['Sharpe_ex'], 'MDD': p['MDD']})
+        if progress:
+            progress(ph + 1, cfg.rebal)
     return pd.DataFrame(rows)
 
 
-def param_sensitivity(close, cfg, rf=None, grid=None):
+def param_sensitivity(close, cfg, rf=None, grid=None, progress=None):
     """파라미터 격자 전수 실행. 기본값이 '봉우리'에 서 있으면 과적합 신호다.
     기본값이 분포 한가운데면, 값을 고른 행위 자체가 성과를 만들지 않았다는 증거."""
     grid = grid or {'trend_win': [100, 150, 200, 250], 'vol_win': [42, 63, 126],
                     'risk_frac': [0.02, 0.03, 0.04]}
+    total = len(grid['trend_win']) * len(grid['vol_win']) * len(grid['risk_frac'])
     rows = []
     for tw in grid['trend_win']:
         for vw in grid['vol_win']:
@@ -98,6 +102,8 @@ def param_sensitivity(close, cfg, rf=None, grid=None):
                 p = perf(r, cfg.ann, rf)
                 rows.append({'trend_win': tw, 'vol_win': vw, 'risk_frac': rk,
                              'CAGR': p['CAGR'], 'Sharpe_ex': p['Sharpe_ex'], 'MDD': p['MDD']})
+                if progress:
+                    progress(len(rows), total)
     df = pd.DataFrame(rows)
     base = df[(df.trend_win == cfg.trend_win) & (df.vol_win == cfg.vol_win)
               & (df.risk_frac == cfg.risk_frac)]

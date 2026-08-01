@@ -78,6 +78,7 @@ stock-prediction-kr/
 ├── scripts/                     ▶ 실행 스크립트
 │   ├── advisory.py              월간 자문 리포트 (목표 비중 + 주문 목록)
 │   ├── validate.py              🔍 전략 검증 (벤치마크·위상·편향·과적합 검사)
+│   ├── serve.py                 🌐 로컬 운용 서버 (사이트 + 갱신 버튼)
 │   ├── build_site.py            🌐 웹 대시보드 데이터 생성
 │   ├── paper_trade.py           Alpaca 페이퍼 자동 집행
 │   ├── monitor.py               성과 추적 (vs 시장)
@@ -101,13 +102,26 @@ stock-prediction-kr/
 `site/` 는 **서버가 필요 없는 정적 사이트**입니다. 외부 라이브러리·CDN을 전혀 쓰지 않아
 파일을 그대로 열어도, GitHub Pages에 올려도 동작합니다.
 
-```bash
-# 1) 데이터 생성 (시세 수집 → 백테스트 → 검증 → site/data/bundle.js)
-python scripts/build_site.py --cache
+### 실행 방법 (셋 중 하나)
 
-# 2) 열기 — 그냥 site/index.html 을 브라우저로 열어도 됩니다
-python -m http.server 8000 --directory site   # 또는 이렇게
+```bash
+# ① 운용 서버 — 권장. 사이트에 "↻ 지금 갱신" 버튼이 생깁니다
+python scripts/serve.py                    # → http://127.0.0.1:8000
+
+# ② 데이터만 갱신하고 정적으로 열기
+python scripts/build_site.py               # site/data/bundle.js 생성
+open site/index.html                       # 그냥 파일을 열어도 동작
+
+# ③ 실제 보유 반영
+python scripts/serve.py --holdings holdings.json
 ```
+
+**① 운용 서버**를 쓰면 우측 상단 **↻ 지금 갱신** 버튼으로 언제든 최신 시세를 다시 받아
+전체를 재계산합니다(진행률 표시, 약 100초). 명령어를 다시 칠 필요가 없습니다.
+
+> 🔒 서버는 **127.0.0.1 에만 바인딩**됩니다 — 같은 와이파이의 다른 기기에서 접근 불가.
+> 이 서버는 파이썬 파이프라인을 실행시킬 수 있으므로 외부에 열지 마세요.
+> 갱신 버튼은 이 서버로 띄웠을 때만 나타나고, GitHub Pages·`file://`에서는 자동으로 숨겨집니다.
 
 | 페이지 | 내용 |
 |---|---|
@@ -182,7 +196,8 @@ SEC_USER_AGENT=이름 이메일       # SEC EDGAR 접근용 (팩터 노트북용
 | ✅ 페이퍼 계좌에 실제 주문 | `python scripts/paper_trade.py --execute` |
 | 📈 성과 추적 (vs 시장) | `python scripts/monitor.py` |
 | 🔍 **전략 검증 리포트** (위 단서 재현) | `python scripts/validate.py --cache` |
-| 🌐 **웹 대시보드 데이터 생성** | `python scripts/build_site.py --cache` |
+| 🌐 **웹 대시보드 띄우기** (갱신 버튼 포함) | `python scripts/serve.py` |
+| 🔄 웹 대시보드 데이터만 생성 | `python scripts/build_site.py --cache` |
 
 > 연구 노트북은 `notebooks/` 폴더에서 주피터/VS Code로 열어 실행합니다.
 

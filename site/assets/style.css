@@ -106,6 +106,27 @@ nav a[aria-current="page"] { background: var(--surface-2); color: var(--ink); fo
 }
 .theme-btn:hover { background: var(--surface-2); color: var(--ink); }
 
+/* 갱신 버튼 — serve.py 로 띄웠을 때만 나타난다 */
+#refresh-slot { display: inline-flex; align-items: center; gap: 9px; }
+#refresh-btn { font-size: 12px; padding: 5px 10px; white-space: nowrap; }
+#refresh-btn:disabled { opacity: .65; cursor: default; }
+.refresh-state { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; }
+.refresh-state .bar {
+  display: inline-block; width: 86px; height: 5px; border-radius: 3px;
+  background: var(--grid); overflow: hidden; flex: none;
+}
+.refresh-state .bar i {
+  display: block; height: 100%; background: var(--s1); border-radius: 3px;
+  transition: width .35s ease;
+}
+.refresh-state .msg {
+  color: var(--muted); max-width: 280px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.refresh-state .msg.ok  { color: var(--good-ink); }
+.refresh-state .msg.err { color: var(--critical); }
+@media (max-width: 720px) { .refresh-state .msg { display: none; } }
+
 /* ---------------------------------------------------------------- 레이아웃 */
 main { max-width: 1180px; margin: 0 auto; padding: 26px 20px 72px; }
 

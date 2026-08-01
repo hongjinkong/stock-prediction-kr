@@ -119,20 +119,24 @@ def build_dashboard(close, cfg, holdings):
     }
 
 
-def main():
-    ap = argparse.ArgumentParser(description='웹 대시보드 데이터 생성')
-    ap.add_argument('--cache', action='store_true', help='시세를 .cache/ 에 저장·재사용')
-    ap.add_argument('--quick', action='store_true', help='파라미터 민감도 생략')
-    ap.add_argument('--holdings', default=None, help='보유 JSON (없으면 현금 100%% 가정)')
-    ap.add_argument('--out', default=os.path.join(SITE_DATA, 'bundle.js'))
-    args = ap.parse_args()
+def build(use_cache=False, quick=False, holdings_path=None,
+          out=None, progress=None):
+    """시세 수집 → 백테스트 → 검증 → bundle.js 생성. 반환: (경로, 요약 dict).
+
+    progress(pct, message) — serve.py 의 '갱신' 버튼이 진행률을 표시하는 데 쓴다.
+    CLI(main)와 로컬 서버가 같은 경로를 타도록 여기에 모아둔다."""
+    out = out or os.path.join(SITE_DATA, 'bundle.js')
+
+    def p(pct, msg):
+        if progress:
+            progress(pct, msg)
 
     cfg = DEFAULT
-    print('데이터 수집 중...', file=sys.stderr)
-    close, rf = load_data(cfg, args.cache)
+    p(3, '시세 수집 중 (yfinance)')
+    close, rf = load_data(cfg, use_cache)
 
-    print('검증 실행 중...', file=sys.stderr)
-    v = run_validation(close, cfg, rf, quick=args.quick)
+    p(15, '검증 시작')
+    v = run_validation(close, cfg, rf, quick=quick, progress=progress)
     s = v.pop('_series')
     strat, ew, expo = s['strategy'], s['equal_weight'], s['exposure']
     bench = s['benchmarks']
@@ -143,10 +147,11 @@ def main():
     dates, series = downsample(close.index, {**eq, **dd, 'exposure': expo})
 
     holdings = {'cash': 10000.0, 'positions': {}}
-    if args.holdings:
-        with open(args.holdings, encoding='utf-8') as f:
+    if holdings_path:
+        with open(holdings_path, encoding='utf-8') as f:
             holdings = json.load(f)
 
+    p(95, '대시보드 데이터 구성')
     bundle = {
         'meta': {
             'as_of': v['as_of'], 'period': v['period'], 'tickers': v['tickers'],
@@ -172,14 +177,41 @@ def main():
         'dashboard': build_dashboard(close, cfg, holdings),
     }
 
-    os.makedirs(SITE_DATA, exist_ok=True)
+    os.makedirs(os.path.dirname(out) or '.', exist_ok=True)
     payload = json.dumps(bundle, ensure_ascii=False, separators=(',', ':'), default=r3)
-    with open(args.out, 'w', encoding='utf-8') as f:
+    tmp = out + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
         f.write('// 자동 생성 — scripts/build_site.py 로 갱신. 직접 수정하지 말 것.\n')
         f.write(f'window.QUANT_DATA = {payload};\n')
-    print(f'생성됨: {args.out}  ({os.path.getsize(args.out)/1024:.0f} KB)')
-    print(f'  기준일 {bundle["meta"]["as_of"]} | 추세 자산 {bundle["dashboard"]["n_in_trend"]}/{len(close.columns)}종'
-          f' | 현금 {bundle["dashboard"]["cash_weight"]*100:.1f}%')
+    os.replace(tmp, out)   # 원자적 교체 — 갱신 중 페이지가 반쪽 파일을 읽지 않도록
+
+    p(100, '완료')
+    return out, {
+        'as_of': bundle['meta']['as_of'],
+        'generated_at': bundle['meta']['generated_at'],
+        'n_in_trend': bundle['dashboard']['n_in_trend'],
+        'n_assets': len(close.columns),
+        'cash_weight': bundle['dashboard']['cash_weight'],
+        'kb': round(os.path.getsize(out) / 1024),
+    }
+
+
+def main():
+    ap = argparse.ArgumentParser(description='웹 대시보드 데이터 생성')
+    ap.add_argument('--cache', action='store_true', help='시세를 .cache/ 에 저장·재사용')
+    ap.add_argument('--quick', action='store_true', help='파라미터 민감도 생략')
+    ap.add_argument('--holdings', default=None, help='보유 JSON (없으면 현금 100%% 가정)')
+    ap.add_argument('--out', default=None)
+    args = ap.parse_args()
+
+    def show(pct, msg):
+        print(f'  [{pct:3.0f}%] {msg}', file=sys.stderr)
+
+    out, info = build(use_cache=args.cache, quick=args.quick,
+                      holdings_path=args.holdings, out=args.out, progress=show)
+    print(f'생성됨: {out}  ({info["kb"]} KB)')
+    print(f'  기준일 {info["as_of"]} | 추세 자산 {info["n_in_trend"]}/{info["n_assets"]}종'
+          f' | 현금 {info["cash_weight"]*100:.1f}%')
 
 
 if __name__ == '__main__':

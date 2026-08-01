@@ -136,17 +136,22 @@
 
   /* ------------------------------------------------------------ 판정 요약 */
   var ew = H.benchmarks.equal_weight, ph = D.phase, uni = D.universe, sg = D.significance, ps = D.params;
+  var verdicts = [
+    ['n', '백테스트가 매일 공짜 리밸런싱을 가정 — <b>사실이었음.</b> 낙폭이 ' +
+      ((H.strategy.MDD - H.naive.MDD) * 100).toFixed(1) + '%p 나빠짐'],
+    ['n', '헤드라인이 21개 위상 중 최선값 — <b>사실이었음.</b> 정직한 MDD는 평균 ' + F.pct(ph.mdd_mean) + ', 최악 ' + F.pct(ph.mdd_worst)],
+    ['n', '동일비중 대비 수익률 우위 — <b>입증 실패.</b> 오히려 연 ' + ((ew.CAGR - H.strategy.CAGR) * 100).toFixed(1) + '%p 덜 범 (p=' + sg.p_value.toFixed(2) + ')'],
+    ['n', '수익의 ' + Math.round(uni.return_share_from_stock_picks * 100) + '%가 후견편향 종목에서 나옴 — <b>사실이었음</b>']
+  ];
+  if (ps) {
+    verdicts.push(['y', '과적합 아님 — <b>방어 성공.</b> ' + ps.n + '개 조합 전부 양(+), 기본값은 ' + ps.base_rank + '위(한가운데)']);
+  }
+  verdicts.push(['y', '낙폭 축소 효과 — <b>방어 성공.</b> 동일비중 대비 ' +
+    ((ew.MDD - H.strategy.MDD) * 100).toFixed(1) + '%p 개선, 5개 위기 전부에서 확인']);
+
   document.getElementById('verdict').innerHTML =
     '<h3>다섯 번의 공격, 다섯 개의 판정</h3>' +
-    [
-      ['n', '백테스트가 매일 공짜 리밸런싱을 가정 — <b>사실이었음.</b> 낙폭이 ' +
-        ((H.strategy.MDD - H.naive.MDD) * 100).toFixed(1) + '%p 나빠짐'],
-      ['n', '헤드라인이 21개 위상 중 최선값 — <b>사실이었음.</b> 정직한 MDD는 평균 ' + F.pct(ph.mdd_mean) + ', 최악 ' + F.pct(ph.mdd_worst)],
-      ['n', '동일비중 대비 수익률 우위 — <b>입증 실패.</b> 오히려 연 ' + ((ew.CAGR - H.strategy.CAGR) * 100).toFixed(1) + '%p 덜 범 (p=' + sg.p_value.toFixed(2) + ')'],
-      ['n', '수익의 ' + Math.round(uni.return_share_from_stock_picks * 100) + '%가 후견편향 종목에서 나옴 — <b>사실이었음</b>'],
-      ['y', '과적합 아님 — <b>방어 성공.</b> ' + ps.n + '개 조합 전부 양(+), 기본값은 ' + ps.base_rank + '위(한가운데)'],
-      ['y', '낙폭 축소 효과 — <b>방어 성공.</b> 동일비중 대비 ' + ((ew.MDD - H.strategy.MDD) * 100).toFixed(1) + '%p 개선, 5개 위기 전부에서 확인']
-    ].map(function (r) {
+    verdicts.map(function (r) {
       return '<div class="row"><span class="mark ' + r[0] + '">' + (r[0] === 'y' ? '✓' : '✕') + '</span><span>' + r[1] + '</span></div>';
     }).join('');
 
@@ -264,6 +269,17 @@
     '이 시스템의 진짜 값어치가 어디에 있는지 보여주는 결과입니다.';
 
   /* ------------------------------------------------------------ 05 민감도 */
+  /* --quick 으로 생성한 번들에는 격자가 없다 — 페이지가 깨지지 않도록 안내로 대체 */
+  if (!ps) {
+    document.getElementById('grid-n').textContent = '36';
+    document.getElementById('heat').innerHTML =
+      '<p class="sub" style="margin:0">이 번들은 <code>--quick</code> 으로 생성되어 파라미터 격자가 빠져 있습니다. ' +
+      '<code>python scripts/build_site.py</code> (--quick 없이) 로 다시 만들면 표시됩니다.</p>';
+    document.getElementById('param-note').textContent =
+      '파라미터 민감도 결과가 이 번들에 포함되어 있지 않습니다.';
+    App.wireTableToggles();
+    return;
+  }
   document.getElementById('grid-n').textContent = ps.n;
   var rfs = [...new Set(ps.rows.map(function (r) { return r.risk_frac; }))].sort();
   var tws = [...new Set(ps.rows.map(function (r) { return r.trend_win; }))].sort(function (a, b) { return a - b; });

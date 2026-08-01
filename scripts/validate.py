@@ -43,12 +43,21 @@ def load_data(cfg, use_cache):
     return close, rf
 
 
-def run_validation(close, cfg, rf, quick=False):
-    """전 검증을 실행해 dict 로 반환 (build_site.py 도 이 함수를 쓴다)."""
+def run_validation(close, cfg, rf, quick=False, progress=None):
+    """전 검증을 실행해 dict 로 반환 (build_site.py 도 이 함수를 쓴다).
+
+    progress(pct, message) — 백테스트를 60번 가까이 돌리므로 오래 걸린다.
+    serve.py 가 진행률을 화면에 뿌리는 데 쓴다."""
+    def p(pct, msg):
+        if progress:
+            progress(pct, msg)
+
+    p(18, '기본 백테스트')
     strat, expo, turnover = backtest(close, cfg, rf=rf)
     bm = benchmarks(close, rf, cfg.ann)
     ew = bm['equal_weight']['returns']
 
+    p(24, '동일비중 대비 유의성 검정 (부트스트랩 2,000회)')
     obs, ci, pval = sharpe_diff_test(strat, ew, rf, cfg.ann)
     naive, _, _ = backtest(close, cfg, rf=None, drift=False, apply_band=False)
 
@@ -71,9 +80,13 @@ def run_validation(close, cfg, rf, quick=False):
                                          'significant': bool(pval < 0.05)},
         'crisis': crisis_table(strat, {k: v['returns'] for k, v in bm.items()}).to_dict('records'),
         'subperiods': subperiods(strat, ew, rf, ann=cfg.ann).to_dict('records'),
-        'universe_bias': universe_bias(close, cfg, rf=rf),
     }
-    ph = phase_robustness(close, cfg, rf)
+    p(34, '유니버스 후견편향 검사')
+    out['universe_bias'] = universe_bias(close, cfg, rf=rf)
+
+    p(40, '리밸런스 위상 견고성 (21회 백테스트)')
+    ph = phase_robustness(close, cfg, rf,
+                          progress=lambda d, t: p(40 + 25 * d / t, f'위상 견고성 {d}/{t}'))
     out['phase_robustness'] = {
         'rows': ph.to_dict('records'),
         'sharpe_mean': float(ph.Sharpe_ex.mean()), 'sharpe_std': float(ph.Sharpe_ex.std()),
@@ -82,7 +95,9 @@ def run_validation(close, cfg, rf, quick=False):
         'headline_phase0': float(ph[ph.phase == 0].Sharpe_ex.iloc[0]),
     }
     if not quick:
-        ps = param_sensitivity(close, cfg, rf)
+        p(65, '파라미터 민감도 격자 (36회 백테스트)')
+        ps = param_sensitivity(close, cfg, rf,
+                               progress=lambda d, t: p(65 + 28 * d / t, f'파라미터 격자 {d}/{t}'))
         out['param_sensitivity'] = {
             'rows': ps.to_dict('records'), 'n': int(len(ps)),
             'sharpe_mean': float(ps.Sharpe_ex.mean()), 'sharpe_min': float(ps.Sharpe_ex.min()),
