@@ -24,6 +24,11 @@ venv/
 holdings.json
 reports/
 
+# 시세 캐시 (validate.py --cache / build_site.py --cache)
+.cache/
+
 # 위 광역 패턴에서 되살릴 파일 (추적 필요)
 !requirements.txt
 !holdings.example.json
+# 사이트 데이터는 빌드 산출물이지만, GitHub Pages 배포를 위해 커밋한다
+!site/data/bundle.js

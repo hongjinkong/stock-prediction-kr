@@ -22,7 +22,9 @@ def main():
     print('데이터 수집 중...', file=sys.stderr)
     close = fetch_close(DEFAULT.tickers, DEFAULT.start)
 
-    cfg_on = DEFAULT                                   # target_portfolio_vol=0.12 (기본 ON)
+    # DEFAULT는 오버레이가 OFF(None)이므로, 비교를 위해 ON 쪽을 명시적으로 켠다.
+    # (예전엔 DEFAULT가 곧 ON이었는데 기본값이 바뀌면서 아래 출력이 None 포맷팅으로 깨졌었다)
+    cfg_on = replace(DEFAULT, target_portfolio_vol=0.12)
     cfg_off = replace(DEFAULT, target_portfolio_vol=None)
 
     print('=' * 68)

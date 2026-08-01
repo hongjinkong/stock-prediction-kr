@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>성과 — 추세추종 시스템</title>
+<meta name="description" content="추세추종 포트폴리오의 2010~2026 백테스트 성과와, 같은 자산을 그냥 보유했을 때와의 비교.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+  <div class="page-head">
+    <h1>성과</h1>
+    <p>2010년부터 지금까지의 백테스트입니다. 비교 대상은 <b>S&amp;P500이 아니라 같은 9자산을 그냥 균등하게 들고 있는 것</b>입니다 —
+       그래야 "추세를 따라간 행위"가 실제로 무엇을 더했는지 알 수 있습니다.</p>
+    <div class="stamp" id="stamp"></div>
+  </div>
+
+  <div class="grid c4" id="tiles"></div>
+
+  <section>
+    <div class="note bad">
+      <p><b>먼저 알아야 할 것 — 이 전략은 돈을 더 벌어주지 않습니다.</b></p>
+      <p id="headline-caveat"></p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">01</span> 자산 성장 곡선</h2>
+    <p class="sub">2010년에 1달러를 넣었다면 지금 얼마가 되었는지. 세로축은 로그 눈금이라 <b>같은 높이 변화 = 같은 비율 변화</b>입니다.</p>
+    <div class="card">
+      <div class="chart-head">
+        <h3>누적 성장 (로그 눈금)</h3>
+        <div class="chart-tools">
+          <button type="button" data-toggle-table="eq" aria-pressed="false">표로 보기</button>
+        </div>
+      </div>
+      <div id="eq-legend"></div>
+      <div class="chart" id="eq"></div>
+      <div class="tbl-view" id="eq-tbl"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">02</span> 낙폭 — 이 전략의 존재 이유</h2>
+    <p class="sub">고점 대비 얼마나 빠져 있는지. 추세추종의 가치는 수익률이 아니라 <b>여기</b>에 있습니다.</p>
+    <div class="card">
+      <div class="chart-head">
+        <h3>고점 대비 낙폭</h3>
+        <div class="chart-tools"><button type="button" data-toggle-table="dd" aria-pressed="false">표로 보기</button></div>
+      </div>
+      <div id="dd-legend"></div>
+      <div class="chart" id="dd"></div>
+      <div class="tbl-view" id="dd-tbl"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">03</span> 위기 구간에서 실제로 어땠나</h2>
+    <p class="sub">추세추종이 방어를 해준다는 주장은 위기 때 확인해야 의미가 있습니다. 다섯 번의 실제 하락장 결과입니다.</p>
+    <div class="grid c2">
+      <div class="card">
+        <div class="chart-head"><h3>위기 구간 누적 수익률</h3></div>
+        <div id="cr-legend"></div>
+        <div class="chart" id="cr"></div>
+      </div>
+      <div class="card"><div id="cr-tbl"></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">04</span> 연도별 수익률</h2>
+    <div class="card">
+      <div class="chart-head">
+        <h3>연도별 수익률</h3>
+        <span class="hint" id="annual-hint"></span>
+      </div>
+      <div id="an-legend"></div>
+      <div class="chart" id="an"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">05</span> 벤치마크 비교</h2>
+    <p class="sub">Sharpe는 <b>무위험수익(단기 국채)을 뺀 초과수익</b> 기준입니다 — 금리가 높던 구간을 공짜 점수로 세지 않기 위해서입니다.</p>
+    <div class="card"><div id="bench-tbl"></div></div>
+  </section>
+
+  <section>
+    <h2><span class="num">06</span> 구간별 안정성</h2>
+    <p class="sub">성과가 특정 시기에만 몰려 있으면 운입니다. 네 구간으로 잘라서 봅니다.</p>
+    <div class="card"><div id="sub-tbl"></div></div>
+  </section>
+</main>
+
+<script src="data/bundle.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var D = window.QUANT_DATA, F = App.F, H = D.headline, C = D.curves;
+  App.chrome();
+
+  var S1 = function () { return Chart.css('--s1'); },
+      S2 = function () { return Chart.css('--s2'); },
+      S3 = function () { return Chart.css('--s3'); };
+
+  document.getElementById('stamp').innerHTML =
+    '구간 <b>' + D.meta.period[0] + ' ~ ' + D.meta.period[1] + '</b>' +
+    '<span>거래일 <b>' + D.meta.n_days.toLocaleString() + '일</b></span>' +
+    '<span>편도 수수료 <b>' + (D.meta.config.cost * 100).toFixed(3) + '%</b> 반영</span>' +
+    '<span>평균 주식 노출 <b>' + F.pct(D.meta.avg_exposure) + '</b></span>';
+
+  var ew = H.benchmarks.equal_weight;
+  document.getElementById('tiles').innerHTML = [
+    ['연평균 수익률 (CAGR)', F.pct(H.strategy.CAGR), '동일비중 ' + F.pct(ew.CAGR) + ' — 더 낮음'],
+    ['Sharpe (초과수익)', F.sh(H.strategy.Sharpe_ex), '동일비중 ' + F.sh(ew.Sharpe_ex)],
+    ['최대 낙폭 (MDD)', F.pct(H.strategy.MDD), '동일비중 ' + F.pct(ew.MDD) + ' — 크게 개선'],
+    ['최종 배수', H.strategy.Final.toFixed(2) + '<small>배</small>', '1달러 → ' + F.usd(H.strategy.Final, 2)]
+  ].map(function (t, i) {
+    return '<div class="tile' + (i === 2 ? ' accent' : '') + '"><div class="k">' + t[0] + '</div>' +
+      '<div class="v">' + t[1] + '</div><div class="n">' + t[2] + '</div></div>';
+  }).join('');
+
+  var sg = D.significance;
+  document.getElementById('headline-caveat').innerHTML =
+    '같은 9자산을 그냥 균등하게 들고만 있었어도 연 <b>' + F.pct(ew.CAGR) + '</b>로, 이 전략(' + F.pct(H.strategy.CAGR) + ')보다 ' +
+    '<b>연 ' + ((ew.CAGR - H.strategy.CAGR) * 100).toFixed(1) + '%p 더 벌었습니다.</b> ' +
+    '위험 대비 성과(Sharpe)는 이 전략이 ' + F.sh(H.strategy.Sharpe_ex) + ' vs ' + F.sh(ew.Sharpe_ex) +
+    '로 조금 앞서지만, 그 차이(' + (sg.sharpe_diff > 0 ? '+' : '') + sg.sharpe_diff.toFixed(3) + ')는 ' +
+    '<b>통계적으로 유의하지 않습니다</b> (블록 부트스트랩 p=' + sg.p_value.toFixed(2) +
+    ', 95% 신뢰구간 [' + sg.ci95[0].toFixed(2) + ', ' + sg.ci95[1].toFixed(2) + '] — 0을 포함). ' +
+    '<b>재현 가능한 유일한 효과는 최대 낙폭이 ' + ((ew.MDD - H.strategy.MDD) * 100).toFixed(1) + '%p 줄어든 것</b>입니다. ' +
+    '자세한 검증은 <a href="validation.html">검증 페이지</a>에 있습니다.';
+
+  /* ------------------------------------------------------------ 성장 곡선 */
+  var eqSeries = function () {
+    return [
+      { name: '추세추종', values: C.strategy, color: S1() },
+      { name: '동일비중 보유', values: C.equal_weight, color: S2() },
+      { name: 'S&P500 (SPY)', values: C.SPY, color: S3() }
+    ];
+  };
+  document.getElementById('eq-legend').innerHTML = App.legend([
+    { name: '추세추종', color: 'var(--s1)' },
+    { name: '동일비중 보유', color: 'var(--s2)' },
+    { name: 'S&P500 (SPY)', color: 'var(--s3)' }
+  ]);
+  var eqHost = document.getElementById('eq');
+  Chart.responsive(eqHost, function () {
+    Chart.line(eqHost, {
+      dates: C.dates, series: eqSeries(), log: true, height: 330,
+      yfmt: function (v) { return v + '배'; }, tfmt: Chart.fmt.mul
+    });
+  });
+  document.getElementById('eq-tbl').innerHTML = App.table(
+    C.dates.map(function (d, i) { return i; }).filter(function (i) {
+      return i % 26 === 0 || i === C.dates.length - 1;   /* 반년 간격 */
+    }).map(function (i) {
+      return { d: C.dates[i], a: C.strategy[i], b: C.equal_weight[i], c: C.SPY[i], e: C['60/40'][i] };
+    }), [
+      { k: 'd', label: '날짜', num: false },
+      { k: 'a', label: '추세추종', fmt: function (v) { return v.toFixed(2) + '배'; } },
+      { k: 'b', label: '동일비중', fmt: function (v) { return v.toFixed(2) + '배'; } },
+      { k: 'c', label: 'SPY', fmt: function (v) { return v.toFixed(2) + '배'; } },
+      { k: 'e', label: '60/40', fmt: function (v) { return v.toFixed(2) + '배'; } }
+    ]);
+
+  /* ------------------------------------------------------------ 낙폭 */
+  document.getElementById('dd-legend').innerHTML = App.legend([
+    { name: '추세추종', color: 'var(--s1)' }, { name: '동일비중 보유', color: 'var(--s2)' }
+  ]);
+  var ddHost = document.getElementById('dd');
+  Chart.responsive(ddHost, function () {
+    Chart.line(ddHost, {
+      dates: C.dates, height: 250, zeroTop: true,
+      series: [
+        { name: '추세추종', values: C.dd_strategy, color: S1(), fill: true },
+        { name: '동일비중 보유', values: C.dd_equal_weight, color: S2(), fill: true }
+      ],
+      yfmt: function (v) { return (v * 100).toFixed(0) + '%'; },
+      tfmt: function (v) { return F.pct(v); }
+    });
+  });
+  document.getElementById('dd-tbl').innerHTML = App.table(
+    C.dates.map(function (d, i) { return i; }).filter(function (i) { return i % 26 === 0; })
+      .map(function (i) { return { d: C.dates[i], a: C.dd_strategy[i], b: C.dd_equal_weight[i] }; }), [
+      { k: 'd', label: '날짜', num: false },
+      { k: 'a', label: '추세추종 낙폭', fmt: function (v) { return F.pct(v); }, cls: F.sign },
+      { k: 'b', label: '동일비중 낙폭', fmt: function (v) { return F.pct(v); }, cls: F.sign }
+    ]);
+
+  /* ------------------------------------------------------------ 위기 구간 */
+  document.getElementById('cr-legend').innerHTML = App.legend([
+    { name: '추세추종', color: 'var(--s1)' }, { name: '동일비중', color: 'var(--s2)' }, { name: 'SPY', color: 'var(--s3)' }
+  ], true);
+  var crHost = document.getElementById('cr');
+  Chart.responsive(crHost, function () {
+    Chart.bar(crHost, {
+      categories: D.crisis.map(function (c) { return c.period.replace(/^(\d{4}(-\d{2})?)\s*/, '$1\n'); }),
+      series: [
+        { name: '추세추종', values: D.crisis.map(function (c) { return c.strategy; }), color: S1() },
+        { name: '동일비중', values: D.crisis.map(function (c) { return c.equal_weight; }), color: S2() },
+        { name: 'SPY', values: D.crisis.map(function (c) { return c.SPY; }), color: S3() }
+      ],
+      height: 290, rotate: true,
+      yfmt: function (v) { return (v * 100).toFixed(0) + '%'; }
+    });
+  });
+  document.getElementById('cr-tbl').innerHTML = App.table(D.crisis, [
+    { k: 'period', label: '구간', num: false },
+    { k: 'strategy', label: '추세추종', fmt: function (v) { return F.pctS(v); }, cls: F.sign },
+    { k: 'equal_weight', label: '동일비중', fmt: function (v) { return F.pctS(v); }, cls: F.sign },
+    { k: 'SPY', label: 'SPY', fmt: function (v) { return F.pctS(v); }, cls: F.sign },
+    {
+      k: function (c) { return c.strategy - c.equal_weight; }, label: '방어 효과',
+      fmt: function (v) { return (v > 0 ? '+' : '') + (v * 100).toFixed(1) + '%p'; }, cls: F.sign
+    }
+  ]);
+
+  /* ------------------------------------------------------------ 연도별 */
+  var wins = D.annual.filter(function (a) { return a.strategy > a.equal_weight; }).length;
+  document.getElementById('annual-hint').textContent =
+    D.annual.length + '개 연도 중 동일비중을 이긴 해 ' + wins + '개 (마지막 해는 연중 누적)';
+  document.getElementById('an-legend').innerHTML = App.legend([
+    { name: '추세추종', color: 'var(--s1)' }, { name: '동일비중', color: 'var(--s2)' }, { name: 'SPY', color: 'var(--s3)' }
+  ], true);
+  var anHost = document.getElementById('an');
+  Chart.responsive(anHost, function () {
+    Chart.bar(anHost, {
+      categories: D.annual.map(function (a) { return String(a.year); }),
+      series: [
+        { name: '추세추종', values: D.annual.map(function (a) { return a.strategy; }), color: S1() },
+        { name: '동일비중', values: D.annual.map(function (a) { return a.equal_weight; }), color: S2() },
+        { name: 'SPY', values: D.annual.map(function (a) { return a.SPY; }), color: S3() }
+      ],
+      height: 260, yfmt: function (v) { return (v * 100).toFixed(0) + '%'; }
+    });
+  });
+
+  /* ------------------------------------------------------------ 벤치마크 표 */
+  var rows = [{ name: '추세추종 (이 시스템)', d: H.strategy, me: true }]
+    .concat([
+      ['같은 9자산 동일비중 보유', 'equal_weight'],
+      ['S&P500 (SPY)', 'SPY'],
+      ['60/40 (주식·채권)', '60/40']
+    ].map(function (b) { return { name: b[0], d: H.benchmarks[b[1]] }; }));
+  document.getElementById('bench-tbl').innerHTML = App.table(rows, [
+    { k: 'name', label: '전략', num: false },
+    { k: function (r) { return r.d.CAGR; }, label: '연평균 수익 (CAGR)', fmt: function (v) { return F.pct(v); } },
+    { k: function (r) { return r.d.Vol; }, label: '연 변동성', fmt: function (v) { return F.pct(v); } },
+    { k: function (r) { return r.d.Sharpe_ex; }, label: 'Sharpe (초과)', fmt: function (v) { return '<b>' + F.sh(v) + '</b>'; } },
+    { k: function (r) { return r.d.MDD; }, label: '최대 낙폭', fmt: function (v) { return F.pct(v); }, cls: F.sign },
+    { k: function (r) { return r.d.Calmar; }, label: 'Calmar', fmt: function (v) { return F.num(v); } }
+  ], { rowClass: function (r) { return r.me ? 'hl' : ''; } });
+
+  /* ------------------------------------------------------------ 구간별 */
+  document.getElementById('sub-tbl').innerHTML = App.table(D.subperiods, [
+    { k: 'period', label: '구간', num: false },
+    { k: 'strat_CAGR', label: '전략 CAGR', fmt: function (v) { return F.pct(v); } },
+    { k: 'strat_Sharpe_ex', label: '전략 Sharpe', fmt: function (v) { return F.sh(v); } },
+    { k: 'strat_MDD', label: '전략 MDD', fmt: function (v) { return F.pct(v); }, cls: F.sign },
+    { k: 'bench_CAGR', label: '동일비중 CAGR', fmt: function (v) { return F.pct(v); } },
+    { k: 'bench_Sharpe_ex', label: '동일비중 Sharpe', fmt: function (v) { return F.sh(v); } },
+    { k: 'bench_MDD', label: '동일비중 MDD', fmt: function (v) { return F.pct(v); }, cls: F.sign },
+    {
+      k: function (r) { return r.strat_MDD - r.bench_MDD; }, label: '낙폭 방어',
+      fmt: function (v) { return (v > 0 ? '+' : '') + (v * 100).toFixed(1) + '%p'; }, cls: F.sign
+    }
+  ]);
+
+  App.wireTableToggles();
+})();
+</script>
+</body>
+</html>

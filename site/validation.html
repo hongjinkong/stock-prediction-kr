@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>검증 — 추세추종 시스템</title>
+<meta name="description" content="백테스트 숫자를 스스로 공격해 본 기록 — 벤치마크 오류, 위상 의존성, 후견편향, 과적합 검사.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+  <div class="page-head">
+    <h1>검증 — 내 백테스트를 내가 공격하기</h1>
+    <p>좋아 보이는 백테스트에는 대개 이유가 있고, 그 이유는 보통 전략이 아닙니다.
+       이 페이지는 <b>이 전략이 좋아 보이는 이유가 진짜인지 하나씩 깨보는</b> 기록입니다.
+       다섯 개의 공격 중 <b>셋은 성공했고(주장 철회), 둘은 방어됐습니다.</b></p>
+    <div class="stamp" id="stamp"></div>
+  </div>
+
+  <section>
+    <div class="verdict" id="verdict"></div>
+  </section>
+
+  <section>
+    <h2><span class="num">공격 01</span> 백테스트가 불가능한 거래를 가정하고 있었다</h2>
+    <p class="sub">기존 백테스트는 리밸런스 사이에 비중을 <b>고정</b>했습니다. 이는 매일 공짜로 목표 비중을 복원한다는 뜻이고,
+       현실에서는 불가능합니다. 비중 드리프트 · 미투자 현금의 이자 · 리밸런스 밴드를 반영했습니다.</p>
+    <div class="grid c2">
+      <div class="card"><div id="naive-tbl"></div></div>
+      <div class="note info">
+        <p><b>결과: 주장 일부 철회</b></p>
+        <p id="naive-note"></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">공격 02</span> 헤드라인 숫자는 21개 중 가장 예쁜 하나였다</h2>
+    <p class="sub">리밸런싱을 "21거래일마다"로 정했는데, <b>21일 중 어느 날 시작하느냐</b>에 따라 결과가 달라집니다.
+       원래 코드는 그 21개 중 하나(0번)만 보고 있었습니다. 전부 돌려봤습니다.</p>
+    <div class="card">
+      <div class="chart-head">
+        <h3>리밸런스 시작일별 Sharpe (21개 전부)</h3>
+        <div class="chart-tools"><button type="button" data-toggle-table="ph" aria-pressed="false">표로 보기</button></div>
+      </div>
+      <div id="ph-legend"></div>
+      <div class="chart" id="ph"></div>
+      <div class="tbl-view" id="ph-tbl"></div>
+    </div>
+    <div class="note bad" style="margin-top:14px">
+      <p><b>결과: 주장 철회</b></p>
+      <p id="phase-note"></p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">공격 03</span> 비교 대상이 틀렸다 — 가장 중요한 발견</h2>
+    <p class="sub">S&amp;P500과 비교하면 무엇이든 좋아 보입니다. 올바른 비교 대상은
+       <b>같은 9자산을 그냥 균등하게 들고 있는 것</b>입니다. "추세를 따라간 행위"만 떼어내서 봐야 하기 때문입니다.</p>
+    <div class="grid c2">
+      <div class="card"><div id="bench-tbl"></div></div>
+      <div class="card">
+        <div class="chart-head"><h3>Sharpe 차이의 신뢰구간</h3><span class="hint">21일 블록 부트스트랩 2,000회</span></div>
+        <div class="chart" id="ci"></div>
+        <p class="sub" style="margin:10px 0 0" id="ci-note"></p>
+      </div>
+    </div>
+    <div class="note bad" style="margin-top:14px">
+      <p><b>결과: 주장 철회 (수익률 우위) / 방어 성공 (낙폭 축소)</b></p>
+      <p id="sig-note"></p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">공격 04</span> 수익의 절반은 "결과를 알고 고른 종목"에서 나왔다</h2>
+    <p class="sub">유니버스의 AAPL · MSFT · NVDA · JPM · XOM은 <b>2026년에 뒤돌아보며 고른 종목</b>입니다.
+       2010년에 이 다섯을 고를 수 있었다는 보장은 없습니다. 아무도 고를 필요가 없는 ETF만으로 다시 돌렸습니다.</p>
+    <div class="grid c2">
+      <div class="card"><div id="uni-tbl"></div></div>
+      <div class="note warn">
+        <p><b>결과: 주장 일부 철회</b></p>
+        <p id="uni-note"></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">공격 05</span> 파라미터를 잘 골라서 좋아 보이는 것 아닌가</h2>
+    <p class="sub">"200일선은 수십 년 된 관습값이라 과적합이 아니다"는 <b>주장</b>일 뿐입니다.
+       파라미터 조합 <span id="grid-n"></span>개를 전부 돌려서 실제로 확인했습니다.
+       기본값이 <b>봉우리</b>에 서 있으면 과적합이고, <b>평지 한가운데</b>면 아닙니다.</p>
+    <div class="card">
+      <div class="chart-head">
+        <h3>파라미터 조합별 Sharpe</h3>
+        <span class="hint">굵은 테두리 = 실제 사용 중인 기본 설정 · 숫자는 Sharpe(초과수익)</span>
+      </div>
+      <div id="heat"></div>
+      <p class="sub" style="margin:12px 0 0">
+        가로축은 변동성 추정 기간(일), 세로축은 추세 판단 기간(일). 세 개의 표는 자산당 목표 위험(risk_frac) 수준입니다.
+      </p>
+    </div>
+    <div class="note ok" style="margin-top:14px">
+      <p><b>결과: 방어 성공</b></p>
+      <p id="param-note"></p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">결론</span> 살아남은 주장</h2>
+    <div class="note info">
+      <p>다섯 번의 공격 뒤에 남은 것은 이렇습니다.</p>
+      <ul>
+        <li><b>살아남음 — 낙폭 축소.</b> 다섯 번의 실제 위기에서 일관되게 확인됐고, 종목 선택을 제거해도 남습니다.</li>
+        <li><b>살아남음 — 과적합 아님.</b> 파라미터 전수 조사에서 기본값은 평지 한가운데에 있습니다.</li>
+        <li><b>철회 — 수익률 우위.</b> 같은 자산을 그냥 보유한 것보다 덜 법니다. Sharpe 우위도 통계적으로 입증되지 않습니다.</li>
+        <li><b>철회 — 헤드라인 MDD -16.9%.</b> 정직한 숫자는 평균 <span id="c-mdd-mean"></span> / 최악 <span id="c-mdd-worst"></span>입니다.</li>
+        <li><b>철회 — CAGR 14.7%.</b> 절반은 후견편향으로 고른 종목 덕입니다. 종목 선택을 빼면 <span id="c-etf-cagr"></span>입니다.</li>
+      </ul>
+      <p style="margin-top:9px">이 페이지 전체는 <code>python scripts/validate.py</code> 로 그대로 재현됩니다.</p>
+    </div>
+  </section>
+</main>
+
+<script src="data/bundle.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var D = window.QUANT_DATA, F = App.F, H = D.headline;
+  App.chrome();
+
+  document.getElementById('stamp').innerHTML =
+    '구간 <b>' + D.meta.period[0] + ' ~ ' + D.meta.period[1] + '</b>' +
+    '<span>검증 스크립트 <b>scripts/validate.py</b></span>' +
+    '<span>무위험수익 기준 <b>BIL (연 ' + F.pct(D.meta.rf_annual, 2) + ')</b></span>';
+
+  /* ------------------------------------------------------------ 판정 요약 */
+  var ew = H.benchmarks.equal_weight, ph = D.phase, uni = D.universe, sg = D.significance, ps = D.params;
+  document.getElementById('verdict').innerHTML =
+    '<h3>다섯 번의 공격, 다섯 개의 판정</h3>' +
+    [
+      ['n', '백테스트가 매일 공짜 리밸런싱을 가정 — <b>사실이었음.</b> 낙폭이 ' +
+        ((H.strategy.MDD - H.naive.MDD) * 100).toFixed(1) + '%p 나빠짐'],
+      ['n', '헤드라인이 21개 위상 중 최선값 — <b>사실이었음.</b> 정직한 MDD는 평균 ' + F.pct(ph.mdd_mean) + ', 최악 ' + F.pct(ph.mdd_worst)],
+      ['n', '동일비중 대비 수익률 우위 — <b>입증 실패.</b> 오히려 연 ' + ((ew.CAGR - H.strategy.CAGR) * 100).toFixed(1) + '%p 덜 범 (p=' + sg.p_value.toFixed(2) + ')'],
+      ['n', '수익의 ' + Math.round(uni.return_share_from_stock_picks * 100) + '%가 후견편향 종목에서 나옴 — <b>사실이었음</b>'],
+      ['y', '과적합 아님 — <b>방어 성공.</b> ' + ps.n + '개 조합 전부 양(+), 기본값은 ' + ps.base_rank + '위(한가운데)'],
+      ['y', '낙폭 축소 효과 — <b>방어 성공.</b> 동일비중 대비 ' + ((ew.MDD - H.strategy.MDD) * 100).toFixed(1) + '%p 개선, 5개 위기 전부에서 확인']
+    ].map(function (r) {
+      return '<div class="row"><span class="mark ' + r[0] + '">' + (r[0] === 'y' ? '✓' : '✕') + '</span><span>' + r[1] + '</span></div>';
+    }).join('');
+
+  /* ------------------------------------------------------------ 01 가정 */
+  document.getElementById('naive-tbl').innerHTML = App.table([
+    { n: '구버전 (매일 공짜 리밸런싱)', d: H.naive },
+    { n: '현실 (드리프트+현금이자+밴드)', d: H.strategy, me: true }
+  ], [
+    { k: 'n', label: '가정', num: false },
+    { k: function (r) { return r.d.CAGR; }, label: 'CAGR', fmt: function (v) { return F.pct(v); } },
+    { k: function (r) { return r.d.Sharpe_ex; }, label: 'Sharpe', fmt: function (v) { return F.sh(v); } },
+    { k: function (r) { return r.d.MDD; }, label: 'MDD', fmt: function (v) { return '<b>' + F.pct(v) + '</b>'; }, cls: F.sign }
+  ], { rowClass: function (r) { return r.me ? 'hl' : ''; } });
+  document.getElementById('naive-note').innerHTML =
+    '최대 낙폭이 <b>' + F.pct(H.naive.MDD) + ' → ' + F.pct(H.strategy.MDD) + '</b>로 ' +
+    Math.abs((H.strategy.MDD - H.naive.MDD) * 100).toFixed(1) + '%p 나빠졌습니다. ' +
+    '수익률은 거의 그대로인데, 이는 현금 이자(연 ' + F.pct(D.meta.rf_annual, 2) + ')와 리밸런스 밴드로 인한 ' +
+    '회전율 감소가 드리프트 손실을 상쇄했기 때문입니다. 밴드 적용으로 누적 회전율은 ' +
+    D.meta.turnover_total + '배로 줄었습니다.';
+
+  /* ------------------------------------------------------------ 02 위상 */
+  document.getElementById('ph-legend').innerHTML = App.legend([
+    { name: '원래 보고하던 위상 (0번)', color: 'var(--s1)' },
+    { name: '나머지 20개 위상', color: 'color-mix(in srgb, var(--s1) 30%, transparent)' }
+  ], true);
+  var phHost = document.getElementById('ph');
+  Chart.responsive(phHost, function () {
+    Chart.bar(phHost, {
+      categories: ph.rows.map(function (r) { return String(r.phase); }),
+      series: [{
+        name: 'Sharpe (초과수익)', values: ph.rows.map(function (r) { return r.Sharpe_ex; }),
+        color: Chart.css('--s1'),
+        dimFn: function (v, i) { return ph.rows[i].phase !== 0; }
+      }],
+      height: 250, min: 0.9, tfmt: function (v) { return F.sh(v); },
+      yfmt: function (v) { return v.toFixed(2); }
+    });
+  });
+  document.getElementById('ph-tbl').innerHTML = App.table(ph.rows, [
+    { k: 'phase', label: '시작일 (0~20)', num: false },
+    { k: 'CAGR', label: 'CAGR', fmt: function (v) { return F.pct(v); } },
+    { k: 'Sharpe_ex', label: 'Sharpe (초과)', fmt: function (v) { return F.sh(v); } },
+    { k: 'MDD', label: 'MDD', fmt: function (v) { return F.pct(v); }, cls: F.sign }
+  ], { rowClass: function (r) { return r.phase === 0 ? 'hl' : ''; } });
+  document.getElementById('phase-note').innerHTML =
+    '원래 보고하던 값(위상 0)은 Sharpe <b>' + F.sh(ph.headline_phase0) + '</b>로 21개 중 <b>가장 높은 값</b>이었습니다. ' +
+    '21개 평균은 <b>' + F.sh(ph.sharpe_mean) + '</b>, 최저는 ' + F.sh(ph.sharpe_min) + '입니다. ' +
+    '최대 낙폭도 마찬가지로 ' + F.pct(ph.mdd_mean) + '(평균) / <b>' + F.pct(ph.mdd_worst) + '(최악)</b>이 정직한 숫자입니다. ' +
+    '전략을 바꾼 게 아니라 <b>달력에서 어느 날 시작하느냐</b>만 달라진 것이므로, 이 차이는 전부 운입니다.';
+
+  /* ------------------------------------------------------------ 03 벤치마크 */
+  document.getElementById('bench-tbl').innerHTML = App.table([
+    { n: '추세추종', d: H.strategy, me: true },
+    { n: '같은 9자산 동일비중', d: ew },
+    { n: 'S&P500 (SPY)', d: H.benchmarks.SPY }
+  ], [
+    { k: 'n', label: '전략', num: false },
+    { k: function (r) { return r.d.CAGR; }, label: 'CAGR', fmt: function (v) { return F.pct(v); } },
+    { k: function (r) { return r.d.Sharpe_ex; }, label: 'Sharpe', fmt: function (v) { return F.sh(v); } },
+    { k: function (r) { return r.d.MDD; }, label: 'MDD', fmt: function (v) { return F.pct(v); }, cls: F.sign }
+  ], { rowClass: function (r) { return r.me ? 'hl' : ''; } });
+
+  /* 신뢰구간 — 0을 포함하는지가 핵심 */
+  var ciHost = document.getElementById('ci');
+  Chart.responsive(ciHost, function () {
+    var W = ciHost.clientWidth || 420, Hh = 118;
+    var lo = Math.min(sg.ci95[0], -0.05) * 1.15, hi = Math.max(sg.ci95[1], 0.05) * 1.15;
+    var L = 12, R = 12, iw = W - L - R, cy = 52;
+    var X = function (v) { return L + (v - lo) / (hi - lo) * iw; };
+    var s = '<svg viewBox="0 0 ' + W + ' ' + Hh + '" style="width:100%;height:auto;overflow:visible">';
+    /* 0 기준선 */
+    s += '<line x1="' + X(0) + '" x2="' + X(0) + '" y1="20" y2="' + (cy + 22) + '" stroke="' + Chart.css('--axis') + '" stroke-width="1.5" stroke-dasharray="3 3"/>';
+    s += '<text x="' + X(0) + '" y="16" text-anchor="middle" font-size="10.5" fill="' + Chart.css('--muted') + '">0 (차이 없음)</text>';
+    /* 신뢰구간 막대 */
+    s += '<rect x="' + X(sg.ci95[0]) + '" y="' + (cy - 9) + '" width="' + (X(sg.ci95[1]) - X(sg.ci95[0])) + '" height="18" rx="4" fill="' + Chart.css('--s1') + '" opacity="0.22"/>';
+    s += '<line x1="' + X(sg.ci95[0]) + '" x2="' + X(sg.ci95[0]) + '" y1="' + (cy - 11) + '" y2="' + (cy + 11) + '" stroke="' + Chart.css('--s1') + '" stroke-width="2"/>';
+    s += '<line x1="' + X(sg.ci95[1]) + '" x2="' + X(sg.ci95[1]) + '" y1="' + (cy - 11) + '" y2="' + (cy + 11) + '" stroke="' + Chart.css('--s1') + '" stroke-width="2"/>';
+    /* 관측값 */
+    s += '<circle cx="' + X(sg.sharpe_diff) + '" cy="' + cy + '" r="5.5" fill="' + Chart.css('--s1') + '" stroke="' + Chart.css('--surface') + '" stroke-width="2"/>';
+    s += '<text x="' + X(sg.sharpe_diff) + '" y="' + (cy + 30) + '" text-anchor="middle" font-size="11" font-weight="600" fill="' + Chart.css('--ink') + '">관측 ' + (sg.sharpe_diff > 0 ? '+' : '') + sg.sharpe_diff.toFixed(3) + '</text>';
+    /* 축 라벨 */
+    s += '<text x="' + X(sg.ci95[0]) + '" y="' + (cy + 48) + '" text-anchor="middle" font-size="10.5" fill="' + Chart.css('--muted') + '">' + sg.ci95[0].toFixed(2) + '</text>';
+    s += '<text x="' + X(sg.ci95[1]) + '" y="' + (cy + 48) + '" text-anchor="middle" font-size="10.5" fill="' + Chart.css('--muted') + '">' + sg.ci95[1].toFixed(2) + '</text>';
+    s += '</svg>';
+    ciHost.innerHTML = s;
+  });
+  document.getElementById('ci-note').innerHTML =
+    '신뢰구간이 <b>0을 포함</b>합니다 → "차이가 없다"를 배제할 수 없습니다. (p=' + sg.p_value.toFixed(3) + ')';
+  document.getElementById('sig-note').innerHTML =
+    '동일비중 대비 Sharpe 차이는 <b>' + (sg.sharpe_diff > 0 ? '+' : '') + sg.sharpe_diff.toFixed(3) + '</b>이지만, ' +
+    '95% 신뢰구간이 [' + sg.ci95[0].toFixed(2) + ', ' + sg.ci95[1].toFixed(2) + ']로 0을 넉넉히 포함합니다. ' +
+    '<b>위험 대비 수익이 더 낫다고 주장할 수 없습니다.</b> CAGR은 오히려 연 ' +
+    ((ew.CAGR - H.strategy.CAGR) * 100).toFixed(1) + '%p 낮습니다. ' +
+    '반면 최대 낙폭은 ' + F.pct(ew.MDD) + ' → <b>' + F.pct(H.strategy.MDD) + '</b>로 ' +
+    ((ew.MDD - H.strategy.MDD) * 100).toFixed(1) + '%p 개선되며, 이는 ' +
+    '<a href="performance.html">다섯 번의 위기 구간 전부</a>에서 재현됩니다. ' +
+    '<b>이 전략은 수익 도구가 아니라 낙폭 관리 도구입니다.</b>';
+
+  /* ------------------------------------------------------------ 04 유니버스 */
+  document.getElementById('uni-tbl').innerHTML = App.table([
+    { n: '9자산 (개별주 5종 포함)', d: uni.full, me: true },
+    { n: 'ETF만 — ' + uni.etf_tickers.join(' '), d: uni.etf_only }
+  ], [
+    { k: 'n', label: '유니버스', num: false },
+    { k: function (r) { return r.d.CAGR; }, label: 'CAGR', fmt: function (v) { return F.pct(v); } },
+    { k: function (r) { return r.d.Sharpe_ex; }, label: 'Sharpe', fmt: function (v) { return F.sh(v); } },
+    { k: function (r) { return r.d.MDD; }, label: 'MDD', fmt: function (v) { return F.pct(v); }, cls: F.sign }
+  ], { rowClass: function (r) { return r.me ? 'hl' : ''; } });
+  document.getElementById('uni-note').innerHTML =
+    '개별주를 빼면 CAGR이 ' + F.pct(uni.full.CAGR) + ' → <b>' + F.pct(uni.etf_only.CAGR) + '</b>로 떨어집니다. ' +
+    '즉 <b>수익의 약 ' + Math.round(uni.return_share_from_stock_picks * 100) + '%가 종목 선택에서 왔고</b>, ' +
+    '그 종목들은 결과를 알고 고른 것이라 미래에 재현될 보장이 없습니다.<br><br>' +
+    '다만 <b>Sharpe는 ' + F.sh(uni.etf_only.Sharpe_ex) + '로 유지되고 최대 낙폭은 ' + F.pct(uni.etf_only.MDD) +
+    '로 오히려 더 좋습니다.</b> 리스크 관리 효과 자체는 종목 선택과 무관하게 살아남습니다 — ' +
+    '이 시스템의 진짜 값어치가 어디에 있는지 보여주는 결과입니다.';
+
+  /* ------------------------------------------------------------ 05 민감도 */
+  document.getElementById('grid-n').textContent = ps.n;
+  var rfs = [...new Set(ps.rows.map(function (r) { return r.risk_frac; }))].sort();
+  var tws = [...new Set(ps.rows.map(function (r) { return r.trend_win; }))].sort(function (a, b) { return a - b; });
+  var vws = [...new Set(ps.rows.map(function (r) { return r.vol_win; }))].sort(function (a, b) { return a - b; });
+  var cf = D.meta.config;
+
+  var heatHost = document.getElementById('heat');
+  Chart.responsive(heatHost, function () {
+    heatHost.innerHTML = '<div class="grid c3" id="heat-grid"></div>';
+    var gridEl = document.getElementById('heat-grid');
+    rfs.forEach(function (rf) {
+      var box = document.createElement('div');
+      box.innerHTML = '<div style="font-size:12px;color:var(--ink-2);margin-bottom:6px;text-align:center">' +
+        '자산당 목표 위험 <b>' + (rf * 100).toFixed(0) + '%</b>' + (rf === cf.risk_frac ? ' <span style="color:var(--muted)">(기본)</span>' : '') + '</div>' +
+        '<div class="chart"></div>';
+      gridEl.appendChild(box);
+      var host = box.querySelector('.chart');
+      var cells = tws.map(function (tw) {
+        return vws.map(function (vw) {
+          var r = ps.rows.find(function (x) { return x.trend_win === tw && x.vol_win === vw && x.risk_frac === rf; });
+          return r ? r.Sharpe_ex : 0;
+        });
+      });
+      var baseAt = (rf === cf.risk_frac) ? [tws.indexOf(cf.trend_win), vws.indexOf(cf.vol_win)] : null;
+      Chart.heatmap(host, {
+        xs: vws, ys: tws, cells: cells, min: ps.sharpe_min, max: ps.sharpe_max,
+        cellW: 54, cellH: 32, baseAt: baseAt, rowLabel: '추세 기간', colLabel: '변동성 기간',
+        detail: function (j, i) {
+          var r = ps.rows.find(function (x) { return x.trend_win === tws[j] && x.vol_win === vws[i] && x.risk_frac === rf; });
+          return [
+            { name: 'Sharpe (초과)', color: Chart.css('--s1'), value: F.sh(r.Sharpe_ex) },
+            { name: 'CAGR', value: F.pct(r.CAGR) },
+            { name: 'MDD', value: F.pct(r.MDD) }
+          ];
+        }
+      });
+    });
+  });
+  document.getElementById('param-note').innerHTML =
+    ps.n + '개 조합 전부 Sharpe가 <b>' + ps.sharpe_min.toFixed(2) + ' ~ ' + ps.sharpe_max.toFixed(2) + '</b> 사이에 있고, ' +
+    '<b>단 하나도 음수가 아닙니다.</b> 기본 설정(200/63/3%)은 ' + ps.base_sharpe.toFixed(2) + '로 ' +
+    '<b>' + ps.base_rank + '위 / ' + ps.n + '개 — 봉우리가 아니라 분포 한가운데</b>입니다.<br><br>' +
+    '만약 과적합이었다면 기본값이 1위 근처에 있고 주변 조합은 성과가 무너져야 합니다. ' +
+    '실제로는 성능 표면이 평탄하므로, <b>파라미터를 고른 행위가 성과를 만들지 않았습니다.</b> ' +
+    '이 시스템의 주장 중 유일하게 온전히 방어된 항목입니다.';
+
+  document.getElementById('c-mdd-mean').textContent = F.pct(ph.mdd_mean);
+  document.getElementById('c-mdd-worst').textContent = F.pct(ph.mdd_worst);
+  document.getElementById('c-etf-cagr').textContent = F.pct(uni.etf_only.CAGR);
+
+  App.wireTableToggles();
+})();
+</script>
+</body>
+</html>

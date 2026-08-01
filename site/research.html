@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>리서치 로그 — 추세추종 시스템</title>
+<meta name="description" content="AI로 주가를 예측하려다 예측이 불가능함을 스스로 증명하고, 리스크 관리로 전환한 기록.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+  <div class="page-head">
+    <h1>리서치 로그</h1>
+    <p>이 프로젝트는 <b>"AI로 주가를 맞히자"</b>로 시작해서 <b>"맞힐 수 없다"</b>를 스스로 증명하고 끝났습니다.
+       그 뒤에 남은 것으로 만든 것이 지금의 추세추종 시스템입니다.
+       실패한 실험들을 지우지 않고 그대로 두는 이유는, <b>지워버리면 다시 같은 함정에 빠지기 때문</b>입니다.</p>
+  </div>
+
+  <section>
+    <div class="grid c4">
+      <div class="tile"><div class="k">방향 예측 정확도</div><div class="v">0.527</div><div class="n">5종목 평균 AUC · 동전던지기 = 0.5</div></div>
+      <div class="tile"><div class="k">크로스섹셔널 AUC</div><div class="v">0.519</div><div class="n">29종목 랭킹 · 거의 무작위</div></div>
+      <div class="tile"><div class="k">변동성 예측 R²</div><div class="v">≈0.4</div><div class="n">예측은 됨 — 수익화는 실패</div></div>
+      <div class="tile accent"><div class="k">최종 채택</div><div class="v" style="font-size:19px">추세추종</div><div class="n">예측 ✕ · 반응 ○</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">01</span> 전체 여정</h2>
+    <div class="card">
+      <div class="timeline">
+        <div class="step">
+          <h3>예측 모델을 만들고 버그·데이터 누출을 제거했다</h3>
+          <div class="meta">PatchTST(Transformer) + LightGBM + RandomForest · NVDA 단일 종목</div>
+          <p>미래값 역채움(<code>bfill</code>) 제거, 수정주가 적용, 하이퍼파라미터 탐색에서 테스트 구간 배제,
+             라벨이 미래를 공유하는 겹침 누출을 막는 <b>Purged Walk-Forward CV</b> 적용.
+             누출을 제거하고 나서도 NVDA의 Test AUC가 0.60까지 나왔다 — <b>겉보기엔 성공이었다.</b></p>
+        </div>
+        <div class="step fail">
+          <h3>같은 모델을 다른 종목에 적용하자 무너졌다</h3>
+          <div class="meta">견고성 검증 · AAPL · MSFT · JPM · TSLA · NVDA</div>
+          <p>5종목 평균 AUC <b>0.527</b>, 그중 3개가 0.50(동전던지기).
+             NVDA도 재실행하니 0.60 → 0.55로 출렁였다.
+             <b>첫 0.60은 실력이 아니라 딥러닝 실행 간 변동성의 상단, 즉 운이었다.</b></p>
+          <div id="auc-tbl" style="margin-top:10px"></div>
+        </div>
+        <div class="step fail">
+          <h3>종목을 고르는 문제로 바꿔도 시장을 못 이겼다</h3>
+          <div class="meta">크로스섹셔널 · 8개 섹터 29종목 상대 랭킹</div>
+          <p>전체 Test AUC <b>0.519</b>. 거래비용을 반영하니 누적수익이 +40% → <b>+7.9%</b>로 무너졌고
+             (3일마다 상위 5종목을 전량 교체 → 회전율 폭발), 단순 동일비중 보유(+31.9%)에도 크게 뒤졌다.
+             비용을 무시해도 Sharpe 0.90 &lt; 시장 1.20.</p>
+          <p>선택 종목을 보니 ORCL 69%, NVDA 62%, AVGO 49% — <b>모델이 한 일은 "종목 선정"이 아니라
+             "그 시기에 잘 나가던 주식을 반복해서 사는 것"</b>이었다.</p>
+        </div>
+        <div class="step fail">
+          <h3>변동성은 예측됐지만 돈이 되지 않았다</h3>
+          <div class="meta">변동성 예측 · R² ≈ 0.4</div>
+          <p>방향은 못 맞혀도 <b>변동성(얼마나 흔들릴지)은 실제로 예측됐다</b> — R²가 0.4나 나왔다.
+             그런데 이걸로 전략을 짜니 <b>"최근 변동성을 그대로 쓴다"는 단순한 방법을 이기지 못했다.</b></p>
+          <p><b>여기서 얻은 교훈이 이 프로젝트에서 가장 값졌다 — 정확한 예측 ≠ 돈이 되는 예측.</b>
+             예측 가능한 것조차, 단순한 방법이 이미 그 가치를 다 담고 있으면 아무 소용이 없다.</p>
+        </div>
+        <div class="step win">
+          <h3>문제를 바꿨다 — 맞히기를 포기하고 반응하기로</h3>
+          <div class="meta">규칙 기반 추세추종 · 현재 운용 중</div>
+          <p>미래를 예측하지 않는다. <b>이미 벌어진 추세에 반응만 한다.</b>
+             가격이 200일 이동평균 위면 보유, 아래로 꺾이면 현금. 변동성이 큰 자산은 적게 담는다.
+             학습하는 파라미터가 없으므로 과적합할 여지 자체가 없다.</p>
+          <p>이것은 <b>더 버는 방법이 아니라 덜 잃는 방법</b>이다. 그리고 그 효과는
+             <a href="validation.html">검증</a>에서 살아남았다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">02</span> 예측이 왜 안 됐나 — 숫자로</h2>
+    <div class="grid c2">
+      <div class="card">
+        <div class="chart-head"><h3>종목별 방향 예측 정확도 (AUC)</h3><span class="hint">0.5 = 동전던지기</span></div>
+        <div class="chart" id="auc-chart"></div>
+      </div>
+      <div class="card">
+        <div class="chart-head"><h3>크로스섹셔널 전략 — 거래비용의 효과</h3><span class="hint">2년 누적수익</span></div>
+        <div class="chart" id="cost-chart"></div>
+      </div>
+    </div>
+    <div class="note bad" style="margin-top:14px">
+      <p><b>결론: 일봉 가격·기술지표로는 미국 대형주의 단기 방향을 맞힐 수 없다.</b></p>
+      <p>이것은 실패가 아니라 <b>"시장이 그 정보 수준에서는 효율적"이라는 사실을 실증한 것</b>입니다.
+         그리고 이 검증 덕분에, 누출 낀 가짜 고성능 모델로 실제 돈을 잃는 일을 막았습니다.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">03</span> 실험 요약</h2>
+    <div class="card"><div id="exp-tbl"></div></div>
+  </section>
+
+  <section>
+    <h2><span class="num">04</span> 남은 교훈</h2>
+    <div class="grid c2">
+      <div class="note info">
+        <p><b>1. 엄격함을 적용하면 "고성능"의 대부분이 사라진다</b></p>
+        <p>데이터 누출을 제거하는 것만으로 대부분의 화려한 백테스트가 무너집니다.
+           엄격한 검증은 성능을 깎는 비용이 아니라, <b>자기기만을 막는 유일한 장치</b>입니다.</p>
+      </div>
+      <div class="note info">
+        <p><b>2. 정확한 예측 ≠ 돈이 되는 예측</b></p>
+        <p>변동성은 R² 0.4로 잘 예측됐지만 돈이 되지 않았습니다.
+           단순한 방법이 이미 그 정보를 다 쓰고 있었기 때문입니다.</p>
+      </div>
+      <div class="note info">
+        <p><b>3. 예측 실패는 프로젝트 실패가 아니다</b></p>
+        <p>"맞힐 수 없다"를 확인한 덕에 문제를 <b>리스크 관리</b>로 다시 정의할 수 있었고,
+           그쪽은 실제로 작동합니다.</p>
+      </div>
+      <div class="note info">
+        <p><b>4. 진짜 엣지는 더 좋은 모델이 아니라 다른 데이터에 있다</b></p>
+        <p>AUC 0.52를 0.55로 만드는 건 튜닝의 문제가 아닙니다.
+           같은 데이터로 더 열심히 하는 대신 <b>다른 데이터·다른 시장·다른 시간 단위</b>가 필요합니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">05</span> 이 시스템을 직접 돌려보려면</h2>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>하고 싶은 것</th><th style="text-align:left">명령어</th></tr></thead>
+          <tbody>
+            <tr><td>이번 달 목표 비중·주문 리포트</td><td style="text-align:left"><code>python scripts/advisory.py --nav 10000</code></td></tr>
+            <tr><td>전략 검증 리포트 (이 사이트의 근거)</td><td style="text-align:left"><code>python scripts/validate.py --cache</code></td></tr>
+            <tr><td>이 사이트 데이터 갱신</td><td style="text-align:left"><code>python scripts/build_site.py --cache</code></td></tr>
+            <tr><td>페이퍼 계좌 자동 매매 (Alpaca)</td><td style="text-align:left"><code>python scripts/paper_trade.py --execute</code></td></tr>
+            <tr><td>성과 추적</td><td style="text-align:left"><code>python scripts/monitor.py</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="sub" style="margin:12px 0 0">
+        연구 노트북은 <code>notebooks/</code>에 있습니다 — <code>prediction/</code>(실패한 예측 모델),
+        <code>trend/</code>(현재 시스템), <code>factor/</code>(팩터 모델), <code>volatility/</code>(변동성 예측).
+      </p>
+    </div>
+  </section>
+</main>
+
+<script src="data/bundle.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var F = App.F;
+  App.chrome();
+
+  /* 예측 모델 검증 결과 — docs/FINDINGS.md 의 수치 */
+  var AUC = [
+    { t: 'AAPL', auc: 0.601, note: '유일하게 0.55 이상' },
+    { t: 'NVDA', auc: 0.554, note: '재실행 시 0.605 → 0.554 (변동성)' },
+    { t: 'TSLA', auc: 0.500, note: '완전한 동전던지기' },
+    { t: 'JPM', auc: 0.498, note: 'Val 0.653 → Test 0.498 (과적합)' },
+    { t: 'MSFT', auc: 0.485, note: '동전던지기보다 못함' }
+  ];
+
+  document.getElementById('auc-tbl').innerHTML = App.table(AUC, [
+    { k: 't', label: '종목', num: false },
+    { k: 'auc', label: 'Test AUC', fmt: function (v) { return v.toFixed(3); } },
+    { k: 'note', label: '비고', num: false }
+  ]);
+
+  var aucHost = document.getElementById('auc-chart');
+  Chart.responsive(aucHost, function () {
+    Chart.bar(aucHost, {
+      categories: AUC.map(function (a) { return a.t; }),
+      series: [{
+        name: 'Test AUC', values: AUC.map(function (a) { return a.auc; }),
+        color: Chart.css('--s1'),
+        /* 0.55 미만 = 사실상 무작위 → 흐리게 */
+        dimFn: function (v) { return v < 0.55; }
+      }],
+      height: 230, min: 0.45, tfmt: function (v) { return v.toFixed(3); },
+      yfmt: function (v) { return v.toFixed(2); }
+    });
+    /* 0.5 기준선을 눈에 띄게 — 이 선 아래는 의미 없음 */
+    var svg = aucHost.querySelector('svg');
+    var note = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    note.setAttribute('x', 54); note.setAttribute('y', 12);
+    note.setAttribute('font-size', 10.5); note.setAttribute('fill', Chart.css('--muted'));
+    note.textContent = '평균 0.527 — 5개 중 3개가 동전던지기 수준';
+    svg.appendChild(note);
+  });
+
+  var costHost = document.getElementById('cost-chart');
+  Chart.responsive(costHost, function () {
+    Chart.bar(costHost, {
+      categories: ['전략\n(비용 무시)', '시장\n(동일비중)', '전략\n(비용 반영)'],
+      series: [{
+        name: '누적수익', values: [0.400, 0.319, 0.079],
+        color: Chart.css('--s1'),
+        dimFn: function (v, i) { return i === 0; }
+      }],
+      height: 230, tfmt: function (v) { return F.pctS(v); },
+      yfmt: function (v) { return (v * 100).toFixed(0) + '%'; }
+    });
+  });
+
+  document.getElementById('exp-tbl').innerHTML = App.table([
+    { e: '주가 방향 예측 (ML 앙상블)', w: 'notebooks/prediction/', r: '실패', d: '5종목 평균 AUC 0.527 — 동전던지기' },
+    { e: '크로스섹셔널 종목 랭킹', w: 'notebooks/prediction/', r: '실패', d: 'AUC 0.519, 거래비용 반영 시 시장에 열위' },
+    { e: '다중 팩터 롱숏', w: 'notebooks/factor/', r: '실패', d: '순수 알파가 통계적으로 무의미 (t < 2)' },
+    { e: '소형주 팩터', w: 'notebooks/factor/', r: '실패', d: '생존편향이 유리하게 작용했는데도 마이너스' },
+    { e: '변동성 예측', w: 'notebooks/volatility/', r: '절반', d: 'R² ≈ 0.4로 예측은 되나 단순법을 못 이김' },
+    { e: '규칙 기반 추세추종', w: 'notebooks/trend/', r: '채택', d: '낙폭 축소 효과 확인 → 실전 운용 중' }
+  ], [
+    { k: 'e', label: '실험', num: false },
+    { k: 'w', label: '위치', num: false, fmt: function (v) { return '<code>' + v + '</code>'; } },
+    {
+      k: 'r', label: '결과', fmt: function (v) {
+        var m = { '실패': ['down', '✕ 알파 없음'], '절반': ['', '◐ 예측되나 수익화 실패'], '채택': ['up', '✓ 실전 채택'] };
+        return '<span class="chip ' + m[v][0] + '">' + m[v][1] + '</span>';
+      }
+    },
+    { k: 'd', label: '정직한 결과', num: false }
+  ], { rowClass: function (r) { return r.r === '채택' ? 'hl' : ''; } });
+
+  App.wireTableToggles();
+})();
+</script>
+</body>
+</html>

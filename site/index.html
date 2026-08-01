@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>운용 대시보드 — 추세추종 시스템</title>
+<meta name="description" content="추세추종 포트폴리오의 이번 달 목표 비중과 리밸런싱 주문을 계산하는 운용 대시보드.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+  <div class="page-head">
+    <h1>운용 대시보드</h1>
+    <p>이번 리밸런싱에서 <b>무엇을 얼마나 사고팔아야 하는지</b>를 계산합니다.
+       200일 이동평균 위에 있는 자산만 보유하고, 변동성이 큰 자산일수록 적게 담습니다.</p>
+    <div class="stamp" id="stamp"></div>
+  </div>
+
+  <div class="grid c4" id="tiles"></div>
+
+  <section>
+    <h2><span class="num">01</span> 리밸런싱 주문 계산</h2>
+    <p class="sub">계좌 잔고와 현재 보유 주수를 넣으면 주문 목록이 나옵니다. 입력값은 이 브라우저에만 저장됩니다(서버 전송 없음).</p>
+    <div class="card">
+      <div class="toolbar" style="margin-bottom:14px">
+        <div class="field" style="width:170px">
+          <label for="nav">계좌 총자산 (USD)</label>
+          <input type="number" id="nav" value="10000" min="0" step="100">
+        </div>
+        <div class="field" style="width:150px">
+          <label for="band">리밸런스 밴드</label>
+          <select id="band">
+            <option value="0.03" selected>3% (기본)</option>
+            <option value="0.01">1% (자주 조정)</option>
+            <option value="0">0% (매번 정확히)</option>
+          </select>
+        </div>
+        <button class="btn" id="clear-btn" type="button">보유 초기화</button>
+        <button class="btn" id="csv-btn" type="button">주문 CSV 내려받기</button>
+        <button class="btn primary" id="copy-btn" type="button">주문 복사</button>
+      </div>
+      <div id="orders"></div>
+      <p class="sub" style="margin:12px 0 0" id="order-note"></p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">02</span> 자산별 추세 상태</h2>
+    <p class="sub">가격이 200일 이동평균 <b>위</b>면 보유, <b>아래</b>면 현금입니다. 이격도는 이동평균 대비 현재 가격의 거리 —
+       0%에 가까울수록 신호가 곧 뒤집힐 수 있다는 뜻입니다.</p>
+    <div class="card"><div id="trend-tbl"></div></div>
+  </section>
+
+  <section>
+    <h2><span class="num">03</span> 목표 비중</h2>
+    <div class="grid c2">
+      <div class="card">
+        <div class="chart-head"><h3>자산별 목표 비중</h3><span class="hint">역변동성 배분 · 종목당 상한 30%</span></div>
+        <div class="chart" id="w-chart"></div>
+      </div>
+      <div class="card">
+        <div class="chart-head"><h3>주식 노출 비중 추이</h3><span class="hint">추세가 꺾이면 자동으로 현금 비중이 늘어납니다</span></div>
+        <div class="chart" id="expo-chart"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="note warn">
+      <p><b>이 시스템이 하는 일과 하지 않는 일</b></p>
+      <ul>
+        <li><b>합니다</b> — 하락장에서 낙폭을 줄입니다. 2020년 코로나(-14.0% vs 지수 -33.4%),
+            2022년 약세장(-6.7% vs -24.1%)에서 확인됐습니다.</li>
+        <li><b>하지 않습니다</b> — 미래 가격을 예측하지 않습니다. 이미 벌어진 추세에 반응할 뿐입니다.</li>
+        <li><b>하지 않습니다</b> — 수익률을 높여주지 않습니다. 같은 9자산을 그냥 균등하게 들고 있는 것보다
+            <b>연 5%p 덜 법니다</b>. 자세한 근거는 <a href="validation.html">검증</a> 페이지에 있습니다.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<script src="data/bundle.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  var D = window.QUANT_DATA, F = App.F, dash = D.dashboard, cfg = D.meta.config;
+  App.chrome();
+
+  document.getElementById('stamp').innerHTML =
+    '기준일 <b>' + dash.as_of + '</b>' +
+    '<span>리밸런스 주기 <b>' + cfg.rebal + '거래일(월 1회)</b></span>' +
+    '<span>추세 자산 <b>' + dash.n_in_trend + '/' + D.meta.tickers.length + '종</b></span>' +
+    '<span>목표 현금 <b>' + F.pct(dash.cash_weight) + '</b></span>';
+
+  /* ---------------------------------------------------------- 스탯 타일 */
+  var risky = dash.assets.filter(function (a) { return a.target_w > 0; });
+  var near = dash.assets.filter(function (a) { return Math.abs(a.dist) < 0.03; });
+  document.getElementById('tiles').innerHTML = [
+    ['주식 노출', F.pct(dash.invested_weight), risky.length + '종 보유'],
+    ['현금 비중', F.pct(dash.cash_weight), dash.cash_weight > 0.3 ? '방어 태세' : '정상 범위'],
+    ['추세 유지', dash.n_in_trend + '<small> / ' + D.meta.tickers.length + '종</small>',
+      (D.meta.tickers.length - dash.n_in_trend) + '종은 200일선 아래'],
+    ['신호 경계선', near.length + '<small>종</small>', near.length ? near.map(function (a) { return a.ticker; }).join(' ') : '없음 (이격도 ±3% 이내)']
+  ].map(function (t, i) {
+    return '<div class="tile' + (i === 0 ? ' accent' : '') + '"><div class="k">' + t[0] + '</div>' +
+      '<div class="v">' + t[1] + '</div><div class="n">' + t[2] + '</div></div>';
+  }).join('');
+
+  /* ---------------------------------------------------------- 주문 계산기 */
+  var KEY = 'holdings.v1';
+  var held = {};
+  try { held = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { }
+
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(held)); } catch (e) { } }
+
+  function computeOrders() {
+    var nav = +document.getElementById('nav').value || 0;
+    var band = +document.getElementById('band').value;
+    return dash.assets.map(function (a) {
+      var sh = +held[a.ticker] || 0;
+      var curVal = sh * a.price;
+      var curW = nav > 0 ? curVal / nav : 0;
+      var tgtVal = a.target_w * nav;
+      var dVal = tgtVal - curVal;
+      var drift = Math.abs(a.target_w - curW);
+      /* report.compute_orders 와 같은 규칙: 밴드 이내면 생략, 단 청산은 항상 */
+      var exit = a.target_w === 0 && sh > 0;
+      var skip = drift < band && !exit;
+      return {
+        t: a, shares: sh, curVal: curVal, curW: curW, tgtVal: tgtVal,
+        dVal: dVal, dShares: a.price > 0 ? dVal / a.price : 0,
+        skip: skip, exit: exit,
+        side: Math.abs(dVal) < 0.005 ? '—' : (dVal > 0 ? 'BUY' : 'SELL')
+      };
+    });
+  }
+
+  function renderOrders() {
+    var nav = +document.getElementById('nav').value || 0;
+    var rows = computeOrders();
+    var act = rows.filter(function (r) { return !r.skip && r.side !== '—'; });
+    var invested = rows.reduce(function (s, r) { return s + r.curVal; }, 0);
+
+    var html = '<div class="tbl-wrap"><table><thead><tr>' +
+      '<th>종목</th><th class="num">현재가</th><th class="num">보유 주수</th>' +
+      '<th class="num">현재 비중</th><th class="num">목표 비중</th>' +
+      '<th class="num">조정액</th><th class="num">주문 주수</th><th class="num">매매</th>' +
+      '</tr></thead><tbody>' +
+      rows.map(function (r) {
+        var a = r.t;
+        var cls = r.skip ? '' : (r.side !== '—' ? 'hl' : '');
+        return '<tr' + (cls ? ' class="' + cls + '"' : '') + '>' +
+          '<td><b>' + a.ticker + '</b> <span style="color:var(--muted);font-size:11.5px">' + a.name + '</span></td>' +
+          '<td class="num">' + F.usd(a.price, 2) + '</td>' +
+          '<td class="num"><input type="number" step="0.001" min="0" data-t="' + a.ticker + '" value="' + (r.shares || 0) + '"></td>' +
+          '<td class="num">' + F.pct(r.curW) + '</td>' +
+          '<td class="num"><b>' + F.pct(a.target_w) + '</b></td>' +
+          '<td class="num ' + (r.skip ? '' : F.sign(r.dVal)) + '">' + (r.skip ? '—' : F.usd(r.dVal)) + '</td>' +
+          '<td class="num">' + (r.skip ? '—' : (r.dShares > 0 ? '+' : '') + r.dShares.toFixed(3)) + '</td>' +
+          '<td class="num">' + (r.skip
+            ? '<span class="chip">밴드 이내</span>'
+            : r.side === '—' ? '—'
+              : '<span class="chip ' + (r.side === 'BUY' ? 'buy' : 'sell') + '">' +
+                (r.side === 'BUY' ? '▲ 매수' : '▼ 매도') + '</span>') + '</td>' +
+          '</tr>';
+      }).join('') +
+      '</tbody><tfoot><tr>' +
+      '<td>현금</td><td class="num">—</td><td class="num">—</td>' +
+      '<td class="num">' + F.pct(nav > 0 ? 1 - invested / nav : 1) + '</td>' +
+      '<td class="num"><b>' + F.pct(dash.cash_weight) + '</b></td>' +
+      '<td class="num">' + F.usd(dash.cash_weight * nav - (nav - invested)) + '</td>' +
+      '<td class="num">—</td><td class="num">—</td>' +
+      '</tr></tfoot></table></div>';
+
+    document.getElementById('orders').innerHTML = html;
+    document.getElementById('order-note').innerHTML = act.length
+      ? '주문 <b>' + act.length + '건</b> · 총 거래대금 ' +
+        F.usd(act.reduce(function (s, r) { return s + Math.abs(r.dVal); }, 0)) +
+        ' · 예상 수수료 ' + F.usd(act.reduce(function (s, r) { return s + Math.abs(r.dVal); }, 0) * cfg.cost, 2) +
+        ' (편도 ' + (cfg.cost * 100).toFixed(3) + '%). 신호는 ' + dash.as_of + ' 종가 기준이며 <b>다음 거래일에 집행</b>합니다.'
+      : '조정할 주문이 없습니다 — 모든 자산이 리밸런스 밴드(' +
+        (+document.getElementById('band').value * 100).toFixed(0) + '%) 이내입니다.';
+
+    document.querySelectorAll('#orders input[data-t]').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        held[inp.dataset.t] = +inp.value || 0;
+        save(); renderOrders();
+      });
+    });
+  }
+
+  function orderCSV() {
+    var rows = computeOrders().filter(function (r) { return !r.skip && r.side !== '—'; });
+    return 'ticker,side,price,target_weight,current_weight,delta_usd,delta_shares\n' +
+      rows.map(function (r) {
+        return [r.t.ticker, r.side, r.t.price.toFixed(2), r.t.target_w.toFixed(4),
+          r.curW.toFixed(4), r.dVal.toFixed(2), r.dShares.toFixed(4)].join(',');
+      }).join('\n');
+  }
+
+  document.getElementById('nav').addEventListener('input', renderOrders);
+  document.getElementById('band').addEventListener('change', renderOrders);
+  document.getElementById('clear-btn').addEventListener('click', function () {
+    held = {}; save(); renderOrders();
+  });
+  document.getElementById('csv-btn').addEventListener('click', function () {
+    var b = new Blob([orderCSV()], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = 'orders_' + dash.as_of + '.csv';
+    a.click();
+  });
+  document.getElementById('copy-btn').addEventListener('click', function (e) {
+    var txt = computeOrders().filter(function (r) { return !r.skip && r.side !== '—'; })
+      .map(function (r) {
+        return r.side + ' ' + r.t.ticker + '  ' + Math.abs(r.dShares).toFixed(3) + '주  (' + F.usd(Math.abs(r.dVal)) + ')';
+      }).join('\n') || '주문 없음';
+    navigator.clipboard.writeText(txt).then(function () {
+      var b = e.target, o = b.textContent;
+      b.textContent = '복사됨 ✓';
+      setTimeout(function () { b.textContent = o; }, 1400);
+    });
+  });
+  renderOrders();
+
+  /* ---------------------------------------------------------- 추세 상태 표 */
+  document.getElementById('trend-tbl').innerHTML = App.table(dash.assets, [
+    { k: function (a) { return '<b>' + a.ticker + '</b>'; }, label: '종목', num: false },
+    { k: 'name', label: '이름', num: false },
+    { k: 'kind', label: '분류', num: false },
+    { k: 'price', label: '현재가', fmt: function (v) { return F.usd(v, 2); } },
+    { k: 'sma', label: '200일 이동평균', fmt: function (v) { return F.usd(v, 2); } },
+    {
+      k: 'dist', label: '이격도', fmt: function (v) { return F.pctS(v); },
+      cls: function (v) { return F.sign(v); }
+    },
+    {
+      k: 'in_trend', label: '상태', fmt: function (v) {
+        return v ? '<span class="chip up">▲ 상승추세</span>' : '<span class="chip down">▼ 현금</span>';
+      }
+    },
+    { k: 'days_in_state', label: '유지 기간', fmt: function (v) { return v + '일'; } },
+    { k: 'vol', label: '연 변동성', fmt: function (v) { return F.pct(v); } },
+    {
+      k: 'target_w', label: '목표 비중', fmt: function (v) {
+        return v > 0 ? '<b>' + F.pct(v) + '</b>' : '<span style="color:var(--muted)">0%</span>';
+      }
+    }
+  ], { rowClass: function (a) { return a.target_w > 0 ? 'hl' : ''; } });
+
+  /* ---------------------------------------------------------- 차트 */
+  var wHost = document.getElementById('w-chart');
+  Chart.responsive(wHost, function () {
+    Chart.hbar(wHost, {
+      labelWidth: 58,
+      rows: dash.assets.map(function (a) {
+        return {
+          label: a.ticker, value: a.target_w,
+          color: Chart.css('--s1'), dim: a.target_w === 0,
+          detail: [
+            { name: a.name, color: Chart.css('--s1'), value: F.pct(a.target_w) },
+            { name: '연 변동성', value: F.pct(a.vol) },
+            { name: '이격도', value: F.pctS(a.dist) }
+          ]
+        };
+      }).concat([{ label: '현금', value: dash.cash_weight, color: Chart.css('--muted') }]),
+      vfmt: function (v) { return F.pct(v); }
+    });
+  });
+
+  var eHost = document.getElementById('expo-chart');
+  Chart.responsive(eHost, function () {
+    Chart.line(eHost, {
+      dates: D.curves.dates, height: 232, min: 0, max: 1,
+      series: [{ name: '주식 노출', values: D.curves.exposure, color: Chart.css('--s1'), fill: true }],
+      yfmt: function (v) { return (v * 100).toFixed(0) + '%'; },
+      tfmt: function (v) { return F.pct(v); }
+    });
+  });
+
+  App.wireTableToggles();
+})();
+</script>
+</body>
+</html>

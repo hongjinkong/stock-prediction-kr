@@ -11,10 +11,14 @@ from .data import fetch_close, latest_prices
 from .signals import trend_signal, volatility, regime_ok
 from .portfolio import target_weights, backtest, perf
 from .report import generate_report, format_report, save_report, value_holdings, compute_orders
+from .evaluate import (fetch_rf, benchmarks, sharpe_diff_test, phase_robustness,
+                       param_sensitivity, universe_bias, crisis_table, subperiods)
 
 __all__ = [
     'Config', 'DEFAULT', 'fetch_close', 'latest_prices',
     'trend_signal', 'volatility', 'regime_ok',
     'target_weights', 'backtest', 'perf',
     'generate_report', 'format_report', 'save_report', 'value_holdings', 'compute_orders',
+    'fetch_rf', 'benchmarks', 'sharpe_diff_test', 'phase_robustness',
+    'param_sensitivity', 'universe_bias', 'crisis_table', 'subperiods',
 ]

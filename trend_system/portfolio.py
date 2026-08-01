@@ -56,22 +56,51 @@ def target_weights(close, cfg):
     return w
 
 
-def backtest(close, cfg):
-    """월간(rebal) 리밸런스 백테스트. 반환: (일별수익 Series, 노출 Series, 총회전율)."""
+def backtest(close, cfg, rf=None, drift=True, phase=0, apply_band=True):
+    """월간(rebal) 리밸런스 백테스트. 반환: (일별수익 Series, 노출 Series, 총회전율).
+
+    실전 운용과 일치시키기 위해 다음을 반영한다 (2026-08 감사에서 추가):
+      - drift      : 리밸런스 사이에 비중이 가격을 따라 움직인다. 끄면(=False) '매일 무비용으로
+                     목표비중 복원'이라는 비현실적 가정이 되어 MDD가 낙관적으로 나온다(-17.9%→-15.7%).
+      - rf         : 미투자 현금의 무위험수익(예: BIL 일간수익 Series). None이면 현금 0% 가정.
+      - phase      : 리밸런스 위상. i % rebal == phase 인 날 리밸런싱.
+                     phase=0 은 임의의 한 선택일 뿐이며, 21개 위상 전부를 돌려야 정직하다(evaluate.py).
+      - apply_band : cfg.rebal_band 미만의 드리프트는 주문 생략(report.compute_orders와 동일 규칙).
+                     실전은 밴드를 쓰는데 백테스트만 안 쓰면 비용이 과대추정된다.
+    """
     rets = close.pct_change().fillna(0.0)
     sig = trend_signal(close, cfg.trend_win).shift(1).fillna(0.0)   # t+1 체결
     vol = volatility(close, cfg.vol_win, cfg.ann).shift(1)
     sma = close.rolling(cfg.trend_win).mean()
     regime = (close[cfg.regime_ticker] > sma[cfg.regime_ticker]).shift(1, fill_value=False)
+    if rf is None:
+        rf = pd.Series(0.0, index=close.index)
+    else:
+        rf = rf.reindex(close.index).fillna(0.0)
 
     tickers = list(close.columns)
     w = pd.Series(0.0, index=tickers)
+    cash = 1.0                       # 미투자 현금 비중(NAV 대비)
     port = pd.Series(0.0, index=close.index)
     expo = pd.Series(0.0, index=close.index)
     turnover = 0.0
 
     for i, dt in enumerate(close.index):
-        if i % cfg.rebal == 0:
+        # 1) 그날의 수익은 '그날 장중 들고 있던' 비중이 번다.
+        #    신호는 dt-1 종가 기준(shift(1))이고 체결은 dt 종가이므로, dt 수익은 직전 비중 몫이다.
+        expo.iloc[i] = float(w.sum())
+        r = float((w * rets.loc[dt]).sum()) + cash * float(rf.loc[dt])
+
+        # 2) 종가 기준으로 비중이 가격을 따라 이동(드리프트)
+        if drift:
+            gross = 1.0 + r
+            if gross > 0:
+                w = w * (1.0 + rets.loc[dt]) / gross
+                cash = cash * (1.0 + float(rf.loc[dt])) / gross
+
+        # 3) 리밸런스일이면 종가에 체결
+        cost = 0.0
+        if i >= phase and (i - phase) % cfg.rebal == 0:
             neww = pd.Series(0.0, index=tickers)
             if (not cfg.use_regime) or bool(regime.loc[dt]):
                 for t in tickers:
@@ -84,22 +113,31 @@ def backtest(close, cfg):
                 # ✅ 포트폴리오 변동성 타겟팅 (dt 시점까지 정보만 사용)
                 scale = portfolio_vol_scale(neww.to_dict(), close.loc[:dt], cfg)
                 neww = neww * scale
+            if apply_band and cfg.rebal_band:
+                # 드리프트가 밴드 미만이면 기존 비중 유지(청산은 항상 실행)
+                hold = ((neww - w).abs() < cfg.rebal_band) & ~((neww == 0.0) & (w > 0))
+                neww = neww.where(~hold, w)
             turn = float((neww - w).abs().sum())
             turnover += turn
-            port.iloc[i] = float((w * rets.loc[dt]).sum()) - turn * cfg.cost
+            cost = turn * cfg.cost
             w = neww
-        else:
-            port.iloc[i] = float((w * rets.loc[dt]).sum())
-        expo.iloc[i] = float(w.sum())
+            cash = 1.0 - float(w.sum())
+        port.iloc[i] = r - cost
     return port, expo, turnover
 
 
-def perf(returns, ann=252):
-    """수익률 Series → 핵심 지표 dict."""
+def perf(returns, ann=252, rf=None):
+    """수익률 Series → 핵심 지표 dict.
+
+    rf(무위험 일간수익 Series)를 주면 Sharpe_ex(초과수익 기준 샤프)를 함께 낸다.
+    Sharpe(원시)는 무위험수익을 빼지 않아 금리가 높던 구간을 과대평가하므로,
+    전략 비교에는 Sharpe_ex 를 쓸 것.
+    """
     r = returns.dropna()
     eq = (1 + r).cumprod()
     n = len(r)
-    out = {'CAGR': np.nan, 'Vol': 0.0, 'Sharpe': 0.0, 'MDD': 0.0, 'Calmar': np.nan, 'Final': np.nan}
+    out = {'CAGR': np.nan, 'Vol': 0.0, 'Sharpe': 0.0, 'Sharpe_ex': np.nan,
+           'MDD': 0.0, 'Calmar': np.nan, 'Final': np.nan}
     if n == 0:
         return out
     out['Final'] = float(eq.iloc[-1])
@@ -107,6 +145,10 @@ def perf(returns, ann=252):
         out['CAGR'] = float(eq.iloc[-1] ** (ann / n) - 1)
     out['Vol'] = float(r.std() * np.sqrt(ann))
     out['Sharpe'] = float(r.mean() / r.std() * np.sqrt(ann)) if r.std() > 0 else 0.0
+    if rf is not None:
+        ex = (r - rf.reindex(r.index).fillna(0.0)).dropna()
+        if len(ex) and ex.std() > 0:
+            out['Sharpe_ex'] = float(ex.mean() / ex.std() * np.sqrt(ann))
     dd = eq / eq.cummax() - 1
     out['MDD'] = float(dd.min())
     out['Calmar'] = float(out['CAGR'] / abs(out['MDD'])) if out['MDD'] < 0 else np.nan
