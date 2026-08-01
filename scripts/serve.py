@@ -143,11 +143,12 @@ def main():
     # 127.0.0.1 고정 — 이 서버는 파이썬 파이프라인을 실행시키므로 외부에 열지 않는다
     srv = ThreadingHTTPServer(('127.0.0.1', args.port), handler)
     url = f'http://127.0.0.1:{args.port}'
-    print('=' * 60)
-    print(f' 추세추종 운용 서버 → {url}')
-    print(f' 갱신: 사이트 우측 상단 "지금 갱신" 버튼 (수 분 소요)')
-    print(f' 종료: Ctrl+C')
-    print('=' * 60)
+    # flush=True — 출력을 파일/파이프로 넘겨도(tee, nohup) 배너가 바로 보이게
+    print('=' * 60, flush=True)
+    print(f' 추세추종 운용 서버 → {url}', flush=True)
+    print(' 갱신: 사이트 우측 상단 "↻ 지금 갱신" 버튼 (약 100초)', flush=True)
+    print(' 종료: Ctrl+C', flush=True)
+    print('=' * 60, flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
